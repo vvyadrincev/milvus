@@ -23,8 +23,7 @@ else ()
 endif ()
 
 set(basic_libs
-        gomp gfortran pthread
-        )
+  gomp pthread)
 
 set(util_srcs
         ${MILVUS_THIRDPARTY_SRC}/easyloggingpp/easylogging++.cc
@@ -136,4 +135,3 @@ endif ()
 #add_subdirectory(faiss_ori)
 #add_subdirectory(faiss_benchmark)
 add_subdirectory(test_nsg)
-

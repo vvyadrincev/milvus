@@ -57,18 +57,14 @@ set(server_test_files
 
 add_executable(test_server ${server_test_files})
 
-set(grpc_lib
-        grpcpp_channelz
-        grpc++
-        grpc
-        grpc_protobuf
-        grpc_protoc
-        )
+find_package(gRPC CONFIG REQUIRED)
+message(STATUS "Using gRPC ${gRPC_VERSION}")
 
 target_link_libraries(test_server
         knowhere
         stdc++
-        ${grpc_lib}
+        gRPC::grpcpp_channelz
+        gRPC::grpc++
         ${unittest_libs}
         oatpp
         )

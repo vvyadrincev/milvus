@@ -16,9 +16,9 @@
 
 set(KNOWHERE_THIRDPARTY_DEPENDENCIES
 
-        Arrow
+        #Arrow
         FAISS
-        GTest
+        #GTest
         MKL
         )
 

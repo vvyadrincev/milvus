@@ -53,7 +53,6 @@ set(depend_libs
         SPTAGLibStatic
         faiss
         gomp
-        gfortran
         pthread
         )
 if (FAISS_WITH_MKL)

@@ -144,8 +144,8 @@ set(grpc_lib
         grpcpp_channelz
         grpc++
         grpc
-        grpc_protobuf
-        grpc_protoc
+        protobuf
+        protoc
         )
 
 set(prometheus_lib
@@ -156,9 +156,9 @@ set(prometheus_lib
         )
 
 set(boost_lib
-        libboost_system.a
-        libboost_filesystem.a
-        libboost_serialization.a
+        boost_system
+        boost_filesystem
+        boost_serialization
         )
 
 set(s3_client_lib
@@ -167,11 +167,11 @@ set(s3_client_lib
         )
 
 set(third_party_libs
-        sqlite
+        sqlite3
         ${grpc_lib}
         yaml-cpp
         mysqlpp
-        zlib
+        z
         fiu
         ${boost_lib}
         ${s3_client_lib}
@@ -212,7 +212,6 @@ endif ()
 set(engine_libs
         pthread
         libgomp.a
-        libgfortran.a
         dl
         )
 

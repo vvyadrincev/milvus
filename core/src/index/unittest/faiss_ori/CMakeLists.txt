@@ -26,7 +26,7 @@ if (KNOWHERE_GPU_VERSION)
     endif ()
 
     set(basic_libs
-            gomp gfortran pthread
+      gomp pthread
             )
 
     include_directories(${CUDA_INCLUDE_DIRS})

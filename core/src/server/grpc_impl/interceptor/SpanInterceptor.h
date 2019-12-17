@@ -17,10 +17,10 @@
 
 #pragma once
 
+#include <memory>
 #include <grpcpp/impl/codegen/interceptor.h>
 #include <grpcpp/impl/codegen/server_interceptor.h>
 #include <opentracing/tracer.h>
-#include <memory>
 
 #include "GrpcInterceptorHookHandler.h"
 

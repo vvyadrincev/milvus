@@ -139,9 +139,9 @@ set(common_files
         )
 
 set(unittest_libs
-        sqlite
-        libboost_system.a
-        libboost_filesystem.a
+        sqlite3
+        boost_system
+        boost_filesystem
         mysqlpp
         yaml-cpp
         gtest
@@ -150,7 +150,6 @@ set(unittest_libs
         gmock_main
         pthread
         metrics
-        gfortran
         opentracing
         opentracing_mocktracer
         fiu
