@@ -140,8 +140,8 @@ set(common_files
 
 set(unittest_libs
         sqlite3
-        boost_system
-        boost_filesystem
+        Boost::headers
+        Boost::filesystem
         mysqlpp
         yaml-cpp
         gtest

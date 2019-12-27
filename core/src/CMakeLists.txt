@@ -140,14 +140,6 @@ if (MILVUS_WITH_PROMETHEUS)
             ${metrics_prometheus_files})
 endif ()
 
-set(grpc_lib
-        grpcpp_channelz
-        grpc++
-        grpc
-        protobuf
-        protoc
-        )
-
 set(prometheus_lib
         prometheus-cpp-push
         prometheus-cpp-pull
@@ -155,11 +147,8 @@ set(prometheus_lib
         curl
         )
 
-set(boost_lib
-        boost_system
-        boost_filesystem
-        boost_serialization
-        )
+get_target_property(grpc_interface_includes gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
+message("GRPC interface includes: ${grpc_interface_includes}")
 
 set(s3_client_lib
         aws-cpp-sdk-s3
@@ -168,12 +157,14 @@ set(s3_client_lib
 
 set(third_party_libs
         sqlite3
-        ${grpc_lib}
+        gRPC::grpcpp_channelz
+        gRPC::grpc++
         yaml-cpp
         mysqlpp
         z
         fiu
-        ${boost_lib}
+        Boost::headers
+        Boost::filesystem
         ${s3_client_lib}
         curl
         crypto
@@ -251,7 +242,8 @@ add_library(tracing STATIC ${tracing_files} ${thirdparty_files})
 set(tracing_lib
         opentracing
         opentracing_mocktracer
-        ${grpc_lib}
+        gRPC::grpcpp_channelz
+        gRPC::grpc++
         pthread
         z
         )

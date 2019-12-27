@@ -193,6 +193,11 @@ else ()
     endif ()
 endif ()
 
+find_package(Boost 1.69 REQUIRED COMPONENTS system filesystem)
+
+find_package(gRPC CONFIG REQUIRED)
+message(STATUS "Using gRPC ${gRPC_VERSION}")
+
 config_summary()
 add_subdirectory(src)
 

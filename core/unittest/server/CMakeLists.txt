@@ -57,9 +57,6 @@ set(server_test_files
 
 add_executable(test_server ${server_test_files})
 
-find_package(gRPC CONFIG REQUIRED)
-message(STATUS "Using gRPC ${gRPC_VERSION}")
-
 target_link_libraries(test_server
         knowhere
         stdc++
