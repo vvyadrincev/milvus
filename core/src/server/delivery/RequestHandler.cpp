@@ -104,6 +104,7 @@ RequestHandler::Search(const std::shared_ptr<Context>& context, const std::strin
     return request_ptr->status();
 }
 
+
 Status
 RequestHandler::DescribeTable(const std::shared_ptr<Context>& context, const std::string& table_name,
                               TableSchema& table_schema) {

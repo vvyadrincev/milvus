@@ -152,9 +152,12 @@ void
 IDMAP::Train(const Config& config) {
     config->CheckValid();
 
-    const char* type = "IDMap,Flat";
-    auto index = faiss::index_factory(config->d, type, GetMetricType(config->metric_type));
-    index_.reset(index);
+    // const char* type = "IDMap,Flat";
+    // auto index_1 = faiss::index_factory(config->d, config->enc_type.c_str(),
+    //                                     GetMetricType(config->metric_type));
+    auto index_1 = new faiss::IndexFlat (config->d, GetMetricType(config->metric_type));
+
+    index_.reset(new faiss::IndexIDMap2(index_1));
 }
 
 // VectorIndexPtr

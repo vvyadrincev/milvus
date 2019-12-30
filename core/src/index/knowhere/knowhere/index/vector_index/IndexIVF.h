@@ -47,6 +47,9 @@ class IVF : public VectorIndex, public FaissBaseIndex {
     void
     set_index_model(IndexModelPtr model) override;
 
+    void Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                     std::vector<bool>& found)override;
+
     void
     Add(const DatasetPtr& dataset, const Config& config) override;
 
@@ -93,6 +96,34 @@ class IVF : public VectorIndex, public FaissBaseIndex {
 
 using IVFIndexPtr = std::shared_ptr<IVF>;
 
+
+class GenericIVF : public IVF {
+public:
+
+    explicit GenericIVF(std::shared_ptr<faiss::Index> index) : IVF(std::move(index)) {
+    }
+
+    GenericIVF() = default;
+
+    void
+    set_index_model(IndexModelPtr model) override{}
+
+    void Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                     std::vector<bool>& found)override;
+
+    IndexModelPtr
+    Train(const DatasetPtr& dataset, const Config& config) override;
+
+protected:
+    void
+    search_impl(int64_t n, const float* data, int64_t k, float* distances, int64_t* labels,
+                const Config& cfg)override;
+
+    faiss::IndexIVF* cast_to_ivf_index();
+
+
+};
+
 class GPUIVF;
 class IVFIndexModel : public IndexModel, public FaissBaseIndex {
     friend IVF;
@@ -119,5 +150,8 @@ class IVFIndexModel : public IndexModel, public FaissBaseIndex {
 };
 
 using IVFIndexModelPtr = std::shared_ptr<IVFIndexModel>;
+
+void common_reconstruct(faiss::Index* index, std::vector<int64_t> ids,
+                        std::vector<float>& xb, std::vector<bool>& found);
 
 }  // namespace knowhere

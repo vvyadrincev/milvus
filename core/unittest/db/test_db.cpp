@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#define ELPP_STL_LOGGING
+
 #include <gtest/gtest.h>
 #include <fiu-control.h>
 #include <fiu-local.h>
@@ -257,6 +259,7 @@ TEST_F(DBTest, DB_TEST) {
 }
 
 TEST_F(DBTest, SEARCH_TEST) {
+    fiu_init(0);
     milvus::scheduler::OptimizerInst::GetInstance()->Init();
     std::string config_path(CONFIG_PATH);
     config_path += CONFIG_FILE;
@@ -356,17 +359,18 @@ TEST_F(DBTest, SEARCH_TEST) {
     {  // search by specify index file
         milvus::engine::meta::DatesT dates;
         std::vector<std::string> file_ids;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+
         // sometimes this case run fast to merge file and build index, old file will be deleted immediately,
         // so the QueryByFileID cannot get files to search
         // input 100 files ids to avoid random failure of this case
-        for (int i = 0; i < 100; i++) {
-            file_ids.push_back(std::to_string(i));
-        }
-        milvus::engine::ResultIds result_ids;
-        milvus::engine::ResultDistances result_distances;
-        stat = db_->QueryByFileID(dummy_context_, TABLE_NAME, file_ids, k, 10, xq, dates, result_ids,
-                                  result_distances);
-        ASSERT_TRUE(stat.ok());
+        // for (int i = 0; i < 100; i++) {
+        //     file_ids.push_back(std::to_string(i));
+        // }
+        // stat = db_->QueryByFileID(dummy_context_, TABLE_NAME, file_ids, k, 10, xq, dates, result_ids,
+        //                           result_distances);
+        // ASSERT_TRUE(stat.ok());
 
         FIU_ENABLE_FIU("SqliteMetaImpl.FilesToSearch.throw_exception");
         stat = db_->QueryByFileID(dummy_context_, TABLE_NAME, file_ids, k, 10, xq, dates, result_ids,
@@ -420,18 +424,209 @@ TEST_F(DBTest, SEARCH_TEST) {
         // sometimes this case run fast to merge file and build index, old file will be deleted immediately,
         // so the QueryByFileID cannot get files to search
         // input 100 files ids to avoid random failure of this case
-        for (int i = 0; i < 100; i++) {
-            file_ids.push_back(std::to_string(i));
-        }
-        result_ids.clear();
-        result_dists.clear();
-        stat = db_->QueryByFileID(dummy_context_, TABLE_NAME, file_ids, k, 10, xq, dates, result_ids,
-                                  result_dists);
-        ASSERT_TRUE(stat.ok());
+        // for (int i = 0; i < 100; i++) {
+        //     file_ids.push_back(std::to_string(i));
+        // }
+        // result_ids.clear();
+        // result_dists.clear();
+        // stat = db_->QueryByFileID(dummy_context_, TABLE_NAME, file_ids, k, 10, xq, dates, result_ids,
+        //                           result_dists);
+        // ASSERT_TRUE(stat.ok());
     }
 
 #endif
 }
+
+template<class Gen, class DB>
+auto insert_data(size_t nb, size_t& first_id, Gen& gen, DB& db){
+    milvus::engine::VectorsData vectors;
+    vectors.float_data_.resize(nb * TABLE_DIM);
+    vectors.id_array_.resize(nb);
+    vectors.vector_count_ = nb;
+
+    std::uniform_real_distribution<> dis_xt(-1.0, 1.0);
+    for (size_t i = 0; i < nb * TABLE_DIM; i++) {
+        vectors.float_data_[i] = dis_xt(gen);
+        if (i < nb) {
+            vectors.id_array_[i] = first_id++;
+        }
+    }
+
+    return db->InsertVectors(TABLE_NAME, "", vectors);
+
+}
+
+struct DBTestExt : public DBTest{
+
+    milvus::engine::DBOptions
+    GetOptions() override{
+        auto opts = DBTest::GetOptions();
+        //do not merge my batches into one file
+        opts.merge_trigger_number_ = 10;
+        return opts;
+    }
+};
+
+TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
+    milvus::scheduler::OptimizerInst::GetInstance()->Init();
+    std::string config_path(CONFIG_PATH);
+    config_path += CONFIG_FILE;
+    milvus::server::Config& config = milvus::server::Config::GetInstance();
+    milvus::Status s = config.LoadConfigFile(config_path);
+
+    milvus::engine::meta::TableSchema table_info = BuildTableSchema();
+    table_info.enc_type_ = "SQ8";
+    auto stat = db_->CreateTable(table_info);
+
+    milvus::engine::meta::TableSchema table_info_get;
+    table_info_get.table_id_ = TABLE_NAME;
+    stat = db_->DescribeTable(table_info_get);
+    ASSERT_TRUE(stat.ok());
+    ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
+    ASSERT_EQ(table_info_get.enc_type_, "SQ8");
+
+    // prepare raw data
+    size_t nb = 30000;
+    size_t nq = 30;
+    size_t k = 1;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+
+    size_t first_id = 500000;
+    size_t id = first_id;
+    stat = insert_data(nb/3, id, gen, db_);
+    ASSERT_TRUE(stat.ok());
+    //wait for compaction
+    sleep(1);
+    stat = insert_data(nb/3, id, gen, db_);
+    ASSERT_TRUE(stat.ok());
+    sleep(1);
+    stat = insert_data(nb/3, id, gen, db_);
+    ASSERT_TRUE(stat.ok());
+
+
+    milvus::engine::VectorsData vectors;
+    vectors.id_array_.resize(nq);
+    vectors.vector_count_ = nq;
+    std::uniform_int_distribution<> dis_xq(first_id, first_id + nb);
+
+    for (size_t i = 0; i < nq; i++) {
+        vectors.id_array_[i] = dis_xq(gen);
+    }
+    //add some id not in db
+    vectors.id_array_[0] = first_id - 1;
+    vectors.id_array_[nq-2] = first_id + nb + 2;
+    auto etal = vectors.id_array_;
+    etal[0] = 0;
+    etal[nq-2] = 0;
+
+
+
+    milvus::engine::TableIndex index;
+    index.enc_type_ = table_info.enc_type_;
+    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IDMAP;
+    stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+
+    ASSERT_TRUE(stat.ok());
+
+
+    {
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+
+        ASSERT_TRUE(stat.ok());
+        //first query id should be not found
+        ASSERT_EQ(etal, result_ids);
+
+    }
+
+
+    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IVFFLAT;
+    stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+    ASSERT_TRUE(stat.ok());
+
+    //Check table data after index recreation
+    stat = db_->DescribeTable(table_info_get);
+    ASSERT_TRUE(stat.ok());
+    ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
+    ASSERT_EQ(table_info_get.enc_type_, "SQ8");
+
+    {
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+        LOG(DEBUG) << "dist="<<result_distances;
+        LOG(DEBUG) << "query=" << vectors.id_array_;
+        LOG(DEBUG) << "result=" << result_ids;
+
+        ASSERT_TRUE(stat.ok());
+        ASSERT_EQ(etal, result_ids);
+
+    }
+
+    //recreate index with another encoding
+    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IVFFLAT;
+    index.enc_type_ = "PQ16";
+    stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+    ASSERT_TRUE(stat.ok());
+
+    //Check table data after index recreation
+    stat = db_->DescribeTable(table_info_get);
+    ASSERT_TRUE(stat.ok());
+    ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
+    ASSERT_EQ(table_info_get.enc_type_, "PQ16");
+
+    {
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+        LOG(DEBUG) << "dist="<<result_distances;
+        LOG(DEBUG) << "query=" << vectors.id_array_;
+        LOG(DEBUG) << "result=" << result_ids;
+
+        ASSERT_TRUE(stat.ok());
+        ASSERT_EQ(etal, result_ids);
+
+    }
+
+
+    {
+        k = 3;
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        vectors.table_id = TABLE_NAME;
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+        LOG(DEBUG) << "dist="<<result_distances;
+        LOG(DEBUG) << "query=" << vectors.id_array_;
+        LOG(DEBUG) << "result=" << result_ids;
+
+        ASSERT_TRUE(stat.ok());
+        //collect top1 for each query
+        milvus::engine::ResultIds top1;
+        for(int i = 0; i < result_ids.size(); i += k)
+            top1.push_back(result_ids[i]);
+
+        ASSERT_EQ(etal, top1);
+
+        milvus::engine::ResultIds top2;
+        for(int i = 1; i < result_ids.size(); i += k)
+            top2.push_back(result_ids[i]);
+
+        ASSERT_NE(etal, top2);
+    }
+}
+
 
 TEST_F(DBTest, PRELOADTABLE_TEST) {
     fiu_init(0);

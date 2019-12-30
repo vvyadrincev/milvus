@@ -29,11 +29,11 @@ class CreateTableRequest : public BaseRequest {
  public:
     static BaseRequestPtr
     Create(const std::shared_ptr<Context>& context, const std::string& table_name, int64_t dimension,
-           int64_t index_file_size, int64_t metric_type);
+           int64_t index_file_size, int64_t metric_type, const std::string& direct_type = "Flat");
 
  protected:
     CreateTableRequest(const std::shared_ptr<Context>& context, const std::string& table_name, int64_t dimension,
-                       int64_t index_file_size, int64_t metric_type);
+                       int64_t index_file_size, int64_t metric_type, const std::string& direct_type);
 
     Status
     OnExecute() override;
@@ -43,6 +43,7 @@ class CreateTableRequest : public BaseRequest {
     int64_t dimension_;
     int64_t index_file_size_;
     int64_t metric_type_;
+    std::string direct_type_;
 };
 
 }  // namespace server

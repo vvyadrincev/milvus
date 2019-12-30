@@ -55,6 +55,11 @@ class CPUSPTAGRNG : public VectorIndex {
     IndexModelPtr
     Train(const DatasetPtr& dataset, const Config& config) override;
 
+    void Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                     std::vector<bool>& found)override{
+        throw std::runtime_error("Not impl");
+    }
+
     void
     Add(const DatasetPtr& dataset, const Config& config) override;
 

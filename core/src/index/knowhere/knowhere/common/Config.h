@@ -24,6 +24,7 @@
 
 namespace knowhere {
 
+
 enum class METRICTYPE {
     INVALID = 0,
     L2 = 1,
@@ -39,12 +40,14 @@ constexpr int64_t DEFAULT_K = INVALID_VALUE;
 constexpr int64_t DEFAULT_DIM = INVALID_VALUE;
 constexpr int64_t DEFAULT_GPUID = INVALID_VALUE;
 constexpr METRICTYPE DEFAULT_TYPE = METRICTYPE::INVALID;
+constexpr const char DEFAULT_ENC_TYPE[] = "Flat";
 
 struct Cfg {
     METRICTYPE metric_type = DEFAULT_TYPE;
     int64_t k = DEFAULT_K;
     int64_t gpu_id = DEFAULT_GPUID;
     int64_t d = DEFAULT_DIM;
+    std::string enc_type = DEFAULT_ENC_TYPE;
 
     Cfg(const int64_t& dim, const int64_t& k, const int64_t& gpu_id, METRICTYPE type)
         : metric_type(type), k(k), gpu_id(gpu_id), d(dim) {

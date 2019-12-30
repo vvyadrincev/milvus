@@ -108,7 +108,8 @@ XSearchTask::XSearchTask(const std::shared_ptr<server::Context>& context, TableF
             ascending_reduce = false;
         }
         index_engine_ = EngineFactory::Build(file_->dimension_, file_->location_, (EngineType)file_->engine_type_,
-                                             (MetricType)file_->metric_type_, file_->nlist_);
+                                             (MetricType)file_->metric_type_, file_->nlist_,
+                                             file->enc_type_);
     }
 }
 

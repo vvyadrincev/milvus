@@ -45,6 +45,12 @@ class BinaryIDMAP : public VectorIndex, public FaissBaseBinaryIndex {
     Search(const DatasetPtr& dataset, const Config& config) override;
 
     void
+    Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                std::vector<bool>& found) override{
+        throw std::logic_error("unsupported!");
+    }
+
+    void
     Add(const DatasetPtr& dataset, const Config& config) override;
 
     void

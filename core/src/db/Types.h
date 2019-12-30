@@ -41,6 +41,7 @@ struct TableIndex {
     int32_t engine_type_ = (int)EngineType::FAISS_IDMAP;
     int32_t nlist_ = 16384;
     int32_t metric_type_ = (int)MetricType::L2;
+    std::string enc_type_ = "Flat";
 };
 
 struct VectorsData {
@@ -48,6 +49,9 @@ struct VectorsData {
     std::vector<float> float_data_;
     std::vector<uint8_t> binary_data_;
     IDNumbers id_array_;
+    //Table_id is used by search_id
+    //If it is empty the default table_id is used(passed in the query)
+    std::string table_id;
 };
 
 using File2ErrArray = std::map<std::string, std::vector<std::string>>;

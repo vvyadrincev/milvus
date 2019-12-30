@@ -51,6 +51,8 @@ class VecIndexImpl : public VecIndex {
     int64_t
     Count() override;
 
+    Status Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                       std::vector<bool>& found) override;
     Status
     Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg) override;
 

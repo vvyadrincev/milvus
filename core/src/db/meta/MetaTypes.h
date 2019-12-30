@@ -34,6 +34,7 @@ constexpr int32_t DEFAULT_ENGINE_TYPE = (int)EngineType::FAISS_IDMAP;
 constexpr int32_t DEFAULT_NLIST = 16384;
 constexpr int32_t DEFAULT_METRIC_TYPE = (int)MetricType::L2;
 constexpr int32_t DEFAULT_INDEX_FILE_SIZE = ONE_GB;
+constexpr char DEFAULT_ENC_TYPE[] = "Flat";
 constexpr char CURRENT_VERSION[] = MILVUS_VERSION;
 
 constexpr int64_t FLAG_MASK_NO_USERID = 0x1;
@@ -59,6 +60,7 @@ struct TableSchema {
     int32_t engine_type_ = DEFAULT_ENGINE_TYPE;
     int32_t nlist_ = DEFAULT_NLIST;
     int32_t metric_type_ = DEFAULT_METRIC_TYPE;
+    std::string enc_type_ = DEFAULT_ENC_TYPE;
     std::string owner_table_;
     std::string partition_tag_;
     std::string version_ = CURRENT_VERSION;
@@ -74,6 +76,7 @@ struct TableFileSchema {
         NEW_MERGE,
         NEW_INDEX,
         BACKUP,
+        DIRECT,
     } FILE_TYPE;
 
     size_t id_ = 0;
@@ -91,6 +94,7 @@ struct TableFileSchema {
     int32_t engine_type_ = DEFAULT_ENGINE_TYPE;
     int32_t nlist_ = DEFAULT_NLIST;              // not persist to meta
     int32_t metric_type_ = DEFAULT_METRIC_TYPE;  // not persist to meta
+    std::string enc_type_ = DEFAULT_ENC_TYPE;
 };                                               // TableFileSchema
 
 using TableFileSchemaPtr = std::shared_ptr<meta::TableFileSchema>;

@@ -55,6 +55,10 @@ enum class MetricType {
 class ExecutionEngine {
  public:
     virtual Status
+    Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                std::vector<bool>& found) = 0;
+
+    virtual Status
     AddWithIds(int64_t n, const float* xdata, const int64_t* xids) = 0;
 
     virtual Status

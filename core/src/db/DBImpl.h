@@ -127,6 +127,10 @@ class DBImpl : public DB {
                const meta::TableFilesSchema& files, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
                ResultIds& result_ids, ResultDistances& result_distances);
 
+    void LoadVectors(const ResultIds& query_ids,
+                     const meta::TableFilesSchema& direct_files,
+                     std::vector<bool>& found, std::vector<float>& float_data);
+
     void
     BackgroundTimerTask();
     void
@@ -161,6 +165,10 @@ class DBImpl : public DB {
     Status
     GetFilesToSearch(const std::string& table_id, const std::vector<size_t>& file_ids, const meta::DatesT& dates,
                      meta::TableFilesSchema& files);
+    Status
+    GetDirectFiles(const std::string& table_id, const std::vector<size_t>& file_ids,
+                   const meta::DatesT& dates,
+                   meta::TableFilesSchema& files);
 
     Status
     GetPartitionsByTags(const std::string& table_id, const std::vector<std::string>& partition_tags,

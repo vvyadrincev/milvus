@@ -24,6 +24,8 @@
 #include <faiss/clone_index.h>
 #include <faiss/index_factory.h>
 #include <faiss/index_io.h>
+#include <faiss/MetaIndexes.h>
+
 #ifdef MILVUS_GPU_VERSION
 #include <faiss/gpu/GpuAutoTune.h>
 #include <faiss/gpu/GpuCloner.h>
@@ -64,6 +66,13 @@ IVF::Train(const DatasetPtr& dataset, const Config& config) {
     // TODO(linxj): override here. train return model or not.
     return std::make_shared<IVFIndexModel>(index);
 }
+
+void
+IVF::Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                 std::vector<bool>& found){
+    common_reconstruct(index_.get(), ids, xb, found);
+}
+
 
 void
 IVF::Add(const DatasetPtr& dataset, const Config& config) {
@@ -277,6 +286,74 @@ IVF::Seal() {
     SealImpl();
 }
 
+
+IndexModelPtr
+GenericIVF::Train(const DatasetPtr& dataset, const Config& config) {
+    auto build_cfg = std::dynamic_pointer_cast<IVFCfg>(config);
+    if (build_cfg != nullptr) {
+        build_cfg->CheckValid();  // throw exception
+    }
+
+    GETTENSOR(dataset)
+
+    std::stringstream index_type;
+    index_type << "IVF" << build_cfg->nlist << ","
+               << build_cfg->enc_type;
+
+    KNOWHERE_LOG_DEBUG << "Index type: " << index_type.str();
+
+    auto index_1 = faiss::index_factory(dim, index_type.str().c_str(),
+                                        GetMetricType(build_cfg->metric_type));
+
+    index_.reset(new faiss::IndexIDMap2(index_1));
+    index_->train(rows, (float*)p_data);
+
+    return std::make_shared<IVFIndexModel>();
+}
+
+
+void
+GenericIVF::Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                        std::vector<bool>& found){
+    std::lock_guard<std::mutex> lk(mutex_);
+
+
+    auto ivf_index = cast_to_ivf_index();
+
+    ivf_index->make_direct_map(true);
+
+    common_reconstruct(index_.get(), ids, xb, found);
+}
+
+void
+GenericIVF::search_impl(int64_t n, const float* data, int64_t k, float* distances, int64_t* labels,
+                        const Config& cfg) {
+
+    auto ivf_index = cast_to_ivf_index();
+    auto search_cfg = std::dynamic_pointer_cast<IVFCfg>(cfg);
+    ivf_index->nprobe = search_cfg->nprobe;
+
+    index_->search(n, (float*)data, k, distances, labels);
+
+    faiss::indexIVF_stats.quantization_time = 0;
+    faiss::indexIVF_stats.search_time = 0;
+
+}
+faiss::IndexIVF*
+GenericIVF::
+cast_to_ivf_index(){
+    auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+    if (not idmap_index)
+        KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+
+    auto ivf_index = dynamic_cast<faiss::IndexIVF*>(idmap_index->index);
+    if (not ivf_index)
+        KNOWHERE_THROW_MSG("index is not ivf_index!");
+
+    return ivf_index;
+
+}
+
 IVFIndexModel::IVFIndexModel(std::shared_ptr<faiss::Index> index) : FaissBaseIndex(std::move(index)) {
 }
 
@@ -299,5 +376,23 @@ void
 IVFIndexModel::SealImpl() {
     // do nothing
 }
+
+
+void common_reconstruct(faiss::Index* index, std::vector<int64_t> ids,
+                        std::vector<float>& xb, std::vector<bool>& found){
+
+    const int dim = xb.size() / ids.size();
+
+    for (int i = 0; i < ids.size(); ++i){
+        if (found[i])
+            continue;
+
+        try {
+            index->reconstruct(ids[i], xb.data() + (i * dim));
+            found[i] = true;
+        }catch(const faiss::FaissException&){}
+    }
+}
+
 
 }  // namespace knowhere

@@ -34,7 +34,8 @@ MemTableFile::MemTableFile(const std::string& table_id, const meta::MetaPtr& met
     if (status.ok()) {
         execution_engine_ = EngineFactory::Build(
             table_file_schema_.dimension_, table_file_schema_.location_, (EngineType)table_file_schema_.engine_type_,
-            (MetricType)table_file_schema_.metric_type_, table_file_schema_.nlist_);
+            (MetricType)table_file_schema_.metric_type_, table_file_schema_.nlist_,
+            table_file_schema_.enc_type_);
     }
 }
 

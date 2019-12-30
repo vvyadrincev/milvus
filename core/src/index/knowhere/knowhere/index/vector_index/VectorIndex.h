@@ -43,6 +43,10 @@ class VectorIndex : public Index {
     }
 
     virtual void
+    Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                std::vector<bool>& found) = 0;
+
+    virtual void
     Add(const DatasetPtr& dataset, const Config& config) = 0;
 
     virtual void

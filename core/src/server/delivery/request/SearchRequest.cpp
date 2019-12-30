@@ -93,9 +93,10 @@ SearchRequest::OnExecute() {
             return status;
         }
 
-        if (vectors_data_.float_data_.empty() && vectors_data_.binary_data_.empty()) {
+        if (vectors_data_.float_data_.empty() && vectors_data_.binary_data_.empty() &&
+            vectors_data_.id_array_.empty()) {
             return Status(SERVER_INVALID_ROWRECORD_ARRAY,
-                          "The vector array is empty. Make sure you have entered vector records.");
+                          "The vector array and query_ids are empty. Make sure you have entered input data.");
         }
 
         // step 4: check date range, and convert to db dates
@@ -157,6 +158,7 @@ SearchRequest::OnExecute() {
 
             status = DBWrapper::DB()->Query(context_, table_name_, partition_list_, (size_t)topk_, nprobe_,
                                             vectors_data_, dates, result_ids, result_distances);
+
         } else {
             status = DBWrapper::DB()->QueryByFileID(context_, table_name_, file_id_list_, (size_t)topk_, nprobe_,
                                                     vectors_data_, dates, result_ids, result_distances);

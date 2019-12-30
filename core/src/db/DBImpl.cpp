@@ -219,7 +219,8 @@ DBImpl::PreloadTable(const std::string& table_id) {
     TimeRecorderAuto rc("Pre-load table:" + table_id);
     for (auto& file : files_array) {
         ExecutionEnginePtr engine = EngineFactory::Build(file.dimension_, file.location_, (EngineType)file.engine_type_,
-                                                         (MetricType)file.metric_type_, file.nlist_);
+                                                         (MetricType)file.metric_type_, file.nlist_,
+                                                         file.enc_type_);
         fiu_do_on("DBImpl.PreloadTable.null_engine", engine = nullptr);
         if (engine == nullptr) {
             ENGINE_LOG_ERROR << "Invalid engine type";
@@ -415,15 +416,17 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
         return SHUTDOWN_ERROR;
     }
 
-    meta::DatesT dates = {utils::GetDate()};
+    // meta::DatesT dates = {utils::GetDate()};
+    meta::DatesT dates;
     Status result = Query(context, table_id, partition_tags, k, nprobe, vectors, dates, result_ids, result_distances);
     return result;
 }
 
 Status
 DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string& table_id,
-              const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
-              const meta::DatesT& dates, ResultIds& result_ids, ResultDistances& result_distances) {
+              const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe,
+              const VectorsData& vectors, const meta::DatesT& dates,
+              ResultIds& result_ids, ResultDistances& result_distances) {
     auto query_ctx = context->Child("Query");
 
     if (!initialized_.load(std::memory_order_acquire)) {
@@ -435,6 +438,7 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
     Status status;
     std::vector<size_t> ids;
     meta::TableFilesSchema files_array;
+    meta::TableFilesSchema direct_files;
 
     if (partition_tags.empty()) {
         // no partition tag specified, means search in whole table
@@ -444,6 +448,15 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
             return status;
         }
 
+        if (!vectors.id_array_.empty()){
+            status = GetDirectFiles(vectors.table_id.empty() ? table_id : vectors.table_id,
+                                    ids, dates, direct_files);
+            if (!status.ok()) {
+                return status;
+            }
+        }
+
+        //TODO for direct??
         std::vector<meta::TableSchema> partition_array;
         status = meta_ptr_->ShowPartitions(table_id, partition_array);
         for (auto& schema : partition_array) {
@@ -458,6 +471,10 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
             status = GetFilesToSearch(partition_name, ids, dates, files_array);
         }
     }
+    std::vector<bool> found_query_ids;
+    LoadVectors(vectors.id_array_, direct_files, found_query_ids,
+                const_cast<std::vector<float>&>(vectors.float_data_));
+
 
     cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info before query
     status = QueryAsync(query_ctx, table_id, files_array, k, nprobe, vectors, result_ids, result_distances);
@@ -465,7 +482,46 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
 
     query_ctx->GetTraceContext()->GetSpan()->Finish();
 
+    if (not status.ok())
+        return status;
+
+    if (!found_query_ids.empty())
+        for (int i = 0; i < vectors.id_array_.size(); ++i){
+            if (not found_query_ids[i]){
+                for (int j = 0; j < k; ++j){
+                    result_ids[i*k + j] = 0;
+                    result_distances[i*k + j] = std::numeric_limits<float>::infinity();
+                }
+
+            }
+        }
+
+
+
     return status;
+}
+
+
+void
+DBImpl::LoadVectors(const ResultIds& query_ids, const meta::TableFilesSchema& direct_files,
+                    std::vector<bool>& found, std::vector<float>& float_data){
+
+    if (query_ids.empty() or direct_files.empty())
+        return;
+
+    float_data.resize(direct_files.front().dimension_ * query_ids.size(), 0.0);
+
+    found.resize(query_ids.size(), false);
+
+    for (const auto& file : direct_files ){
+        auto direct_engine = EngineFactory::Build(file.dimension_, file.location_,
+                                                  (EngineType)file.engine_type_,
+                                                  (MetricType)file.metric_type_, file.nlist_,
+                                                  file.enc_type_);
+        direct_engine->Load();
+        direct_engine->Reconstruct(query_ids, float_data, found);
+
+    }
 }
 
 Status
@@ -499,6 +555,7 @@ DBImpl::QueryByFileID(const std::shared_ptr<server::Context>& context, const std
     if (files_array.empty()) {
         return Status(DB_ERROR, "Invalid file id");
     }
+
 
     cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info before query
     status = QueryAsync(query_ctx, table_id, files_array, k, nprobe, vectors, result_ids, result_distances);
@@ -713,7 +770,8 @@ DBImpl::MergeFiles(const std::string& table_id, const meta::DateT& date, const m
     // step 2: merge files
     ExecutionEnginePtr index =
         EngineFactory::Build(table_file.dimension_, table_file.location_, (EngineType)table_file.engine_type_,
-                             (MetricType)table_file.metric_type_, table_file.nlist_);
+                             (MetricType)table_file.metric_type_, table_file.nlist_,
+                             table_file.enc_type_);
 
     meta::TableFilesSchema updated;
     int64_t index_size = 0;
@@ -938,6 +996,22 @@ DBImpl::GetFilesToSearch(const std::string& table_id, const std::vector<size_t>&
 
     meta::DatePartionedTableFilesSchema date_files;
     auto status = meta_ptr_->FilesToSearch(table_id, file_ids, dates, date_files);
+    if (!status.ok()) {
+        return status;
+    }
+
+    TraverseFiles(date_files, files);
+    return Status::OK();
+}
+
+Status
+DBImpl::GetDirectFiles(const std::string& table_id, const std::vector<size_t>& file_ids,
+                       const meta::DatesT& dates,
+                       meta::TableFilesSchema& files) {
+    ENGINE_LOG_DEBUG << "Collect files from table: " << table_id;
+
+    meta::DatePartionedTableFilesSchema date_files;
+    auto status = meta_ptr_->DirectFiles(table_id, file_ids, dates, date_files);
     if (!status.ok()) {
         return status;
     }

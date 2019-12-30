@@ -36,7 +36,8 @@ XBuildIndexTask::XBuildIndexTask(TableFileSchemaPtr file, TaskLabelPtr label)
     : Task(TaskType::BuildIndexTask, std::move(label)), file_(file) {
     if (file_) {
         to_index_engine_ = EngineFactory::Build(file_->dimension_, file_->location_, (EngineType)file_->engine_type_,
-                                                (MetricType)file_->metric_type_, file_->nlist_);
+                                                (MetricType)file_->metric_type_, file_->nlist_,
+                                                file_->enc_type_);
     }
 }
 
@@ -195,7 +196,7 @@ XBuildIndexTask::Execute() {
             return;
         }
 
-        // step 6: update meta
+        // step 6: update meta and make direct
         table_file.file_type_ = engine::meta::TableFileSchema::INDEX;
         table_file.file_size_ = index->PhysicalSize();
         table_file.row_count_ = index->Count();

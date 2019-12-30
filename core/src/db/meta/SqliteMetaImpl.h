@@ -99,6 +99,9 @@ class SqliteMetaImpl : public Meta {
     Status
     FilesToSearch(const std::string& table_id, const std::vector<size_t>& ids, const DatesT& dates,
                   DatePartionedTableFilesSchema& files) override;
+    Status
+    DirectFiles(const std::string& table_id, const std::vector<size_t>& ids, const DatesT& dates,
+                DatePartionedTableFilesSchema& files) override;
 
     Status
     FilesToMerge(const std::string& table_id, DatePartionedTableFilesSchema& files) override;

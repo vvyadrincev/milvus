@@ -97,8 +97,10 @@ class CachedQuantizer : public cache::DataObj {
 };
 
 ExecutionEngineImpl::ExecutionEngineImpl(uint16_t dimension, const std::string& location, EngineType index_type,
-                                         MetricType metric_type, int32_t nlist)
-    : location_(location), dim_(dimension), index_type_(index_type), metric_type_(metric_type), nlist_(nlist) {
+                                         MetricType metric_type, int32_t nlist,
+                                         const std::string& enc_type)
+    : location_(location), dim_(dimension), index_type_(index_type), metric_type_(metric_type), nlist_(nlist),
+      enc_type_(enc_type){
     EngineType tmp_index_type = server::ValidationUtil::IsBinaryMetricType((int32_t)metric_type)
                                     ? EngineType::FAISS_BIN_IDMAP
                                     : EngineType::FAISS_IDMAP;
@@ -117,6 +119,7 @@ ExecutionEngineImpl::ExecutionEngineImpl(uint16_t dimension, const std::string& 
 
     auto adapter = AdapterMgr::GetInstance().GetAdapter(index_->GetType());
     auto conf = adapter->Match(temp_conf);
+    conf->enc_type = enc_type;
 
     ErrorCode ec = KNOWHERE_UNEXPECTED_ERROR;
     if (auto bf_index = std::dynamic_pointer_cast<BFIndex>(index_)) {
@@ -299,6 +302,13 @@ ExecutionEngineImpl::HybridUnset() const {
         return;
     }
     index_->UnsetQuantizer();
+}
+
+Status
+ExecutionEngineImpl::Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                                 std::vector<bool>& found) {
+    auto status = index_->Reconstruct(ids, xb, found);
+    return status;
 }
 
 Status
@@ -599,6 +609,8 @@ ExecutionEngineImpl::BuildIndex(const std::string& location, EngineType engine_t
 
     auto adapter = AdapterMgr::GetInstance().GetAdapter(to_index->GetType());
     auto conf = adapter->Match(temp_conf);
+
+    conf->enc_type = enc_type_;
 
     if (from_index) {
         status = to_index->BuildAll(Count(), from_index->GetRawVectors(), from_index->GetRawIds(), conf);

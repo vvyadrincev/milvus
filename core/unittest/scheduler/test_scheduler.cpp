@@ -55,6 +55,12 @@ class MockVecIndex : public engine::VecIndex {
         return engine::IndexType::INVALID;
     }
 
+    milvus::Status
+    Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                std::vector<bool>& found)override{
+        return milvus::Status();
+    }
+
     virtual Status
     Add(const int64_t& nb, const float* xb, const int64_t* ids, const engine::Config& cfg = engine::Config()) {
     }

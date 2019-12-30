@@ -29,7 +29,7 @@ class EngineFactory {
  public:
     static ExecutionEnginePtr
     Build(uint16_t dimension, const std::string& location, EngineType index_type, MetricType metric_type,
-          int32_t nlist);
+          int32_t nlist, const std::string& enc_type = "Flat");
 };
 
 }  // namespace engine

@@ -66,6 +66,10 @@ class VecIndex : public cache::DataObj {
              const float* xt = nullptr) = 0;
 
     virtual Status
+    Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                std::vector<bool>& found) = 0;
+
+    virtual Status
     BuildAll(const int64_t& nb, const uint8_t* xb, const int64_t* ids, const Config& cfg, const int64_t& nt = 0,
              const uint8_t* xt = nullptr) {
         ENGINE_LOG_ERROR << "BuildAll with uint8_t not support";

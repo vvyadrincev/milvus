@@ -30,19 +30,21 @@ namespace milvus {
 namespace server {
 
 CreateTableRequest::CreateTableRequest(const std::shared_ptr<Context>& context, const std::string& table_name,
-                                       int64_t dimension, int64_t index_file_size, int64_t metric_type)
+                                       int64_t dimension, int64_t index_file_size, int64_t metric_type,
+                                       const std::string& direct_type)
     : BaseRequest(context, DDL_DML_REQUEST_GROUP),
       table_name_(table_name),
       dimension_(dimension),
       index_file_size_(index_file_size),
-      metric_type_(metric_type) {
+      metric_type_(metric_type),
+      direct_type_(direct_type){
 }
 
 BaseRequestPtr
 CreateTableRequest::Create(const std::shared_ptr<Context>& context, const std::string& table_name, int64_t dimension,
-                           int64_t index_file_size, int64_t metric_type) {
+                           int64_t index_file_size, int64_t metric_type, const std::string& direct_type) {
     return std::shared_ptr<BaseRequest>(
-        new CreateTableRequest(context, table_name, dimension, index_file_size, metric_type));
+        new CreateTableRequest(context, table_name, dimension, index_file_size, metric_type, direct_type));
 }
 
 Status
@@ -80,6 +82,7 @@ CreateTableRequest::OnExecute() {
         table_info.dimension_ = static_cast<uint16_t>(dimension_);
         table_info.index_file_size_ = index_file_size_;
         table_info.metric_type_ = metric_type_;
+        table_info.direct_type_ = direct_type_;
 
         // some metric type only support binary vector, adapt the index type
         if (ValidationUtil::IsBinaryMetricType(metric_type_)) {

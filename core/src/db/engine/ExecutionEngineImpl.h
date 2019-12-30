@@ -29,10 +29,14 @@ namespace engine {
 class ExecutionEngineImpl : public ExecutionEngine {
  public:
     ExecutionEngineImpl(uint16_t dimension, const std::string& location, EngineType index_type, MetricType metric_type,
-                        int32_t nlist);
+                        int32_t nlist, const std::string& enc_type = "Flat");
 
     ExecutionEngineImpl(VecIndexPtr index, const std::string& location, EngineType index_type, MetricType metric_type,
                         int32_t nlist);
+
+    Status
+    Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
+                std::vector<bool>& found)override;
 
     Status
     AddWithIds(int64_t n, const float* xdata, const int64_t* xids) override;
@@ -131,6 +135,7 @@ class ExecutionEngineImpl : public ExecutionEngine {
 
     int64_t nlist_ = 0;
     int64_t gpu_num_ = 0;
+    std::string enc_type_;
 };
 
 }  // namespace engine
