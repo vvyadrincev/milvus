@@ -155,7 +155,7 @@ set(unittest_libs
         fiu
         aws-cpp-sdk-s3
         aws-cpp-sdk-core
-        curl
+        # curl
         crypto
         )
 if (MILVUS_WITH_PROMETHEUS)

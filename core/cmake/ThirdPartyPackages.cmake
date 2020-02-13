@@ -443,6 +443,7 @@ macro(build_mysqlpp)
     set(MYSQLPP_CONFIGURE_ARGS
             "--prefix=${MYSQLPP_PREFIX}"
             "--enable-thread-check"
+            "--with-mysql-include=${MYSQL_INCLUDE_DIR}"
             "CFLAGS=${EP_C_FLAGS}"
             "CXXFLAGS=${EP_CXX_FLAGS}"
             "LDFLAGS=-pthread")

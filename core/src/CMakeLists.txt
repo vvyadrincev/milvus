@@ -166,7 +166,7 @@ set(third_party_libs
         Boost::headers
         Boost::filesystem
         ${s3_client_lib}
-        curl
+        # curl
         crypto
         )
 
