@@ -30,14 +30,17 @@ namespace milvus {
 namespace server {
 
 CreateIndexRequest::CreateIndexRequest(const std::shared_ptr<Context>& context, const std::string& table_name,
-                                       int64_t index_type, int64_t nlist)
-    : BaseRequest(context, DDL_DML_REQUEST_GROUP), table_name_(table_name), index_type_(index_type), nlist_(nlist) {
+                                       int64_t index_type, int64_t nlist,
+                                       const std::string& enc_type )
+    : BaseRequest(context, DDL_DML_REQUEST_GROUP), table_name_(table_name), index_type_(index_type),
+      nlist_(nlist), enc_type_(enc_type) {
 }
 
 BaseRequestPtr
 CreateIndexRequest::Create(const std::shared_ptr<Context>& context, const std::string& table_name, int64_t index_type,
-                           int64_t nlist) {
-    return std::shared_ptr<BaseRequest>(new CreateIndexRequest(context, table_name, index_type, nlist));
+                           int64_t nlist, const std::string& enc_type) {
+    return std::shared_ptr<BaseRequest>(new CreateIndexRequest(context, table_name, index_type,
+                                                               nlist, enc_type));
 }
 
 Status
@@ -108,6 +111,7 @@ CreateIndexRequest::OnExecute() {
         engine::TableIndex index;
         index.engine_type_ = adapter_index_type;
         index.nlist_ = nlist_;
+        index.enc_type_ = enc_type_;
         status = DBWrapper::DB()->CreateIndex(table_name_, index);
         fiu_do_on("CreateIndexRequest.OnExecute.create_index_fail",
                   status = Status(milvus::SERVER_UNEXPECTED_ERROR, ""));

@@ -64,6 +64,7 @@ target_link_libraries(test_server
         gRPC::grpc++
         ${unittest_libs}
         oatpp
+        zmq
         )
 
 install(TARGETS test_server DESTINATION unittest)

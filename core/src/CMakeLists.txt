@@ -91,6 +91,11 @@ set(grpc_server_files
         ${grpc_impl_files}
         ${grpc_interceptor_files}
         )
+aux_source_directory(${MILVUS_ENGINE_SRC}/server/0mq_impl 0mq_impl_files)
+set(0mq_server_files
+  ${0mq_impl_files}
+  )
+
 
 aux_source_directory(${MILVUS_ENGINE_SRC}/server/web_impl/handler web_handler_files)
 aux_source_directory(${MILVUS_ENGINE_SRC}/server/web_impl/component web_conponent_files)
@@ -254,6 +259,8 @@ set(server_libs
         metrics
         tracing
         oatpp
+        zmq
+        cbor
         )
 
 add_executable(milvus_server
@@ -264,6 +271,7 @@ add_executable(milvus_server
         ${grpc_server_files}
         ${grpc_service_files}
         ${web_server_files}
+        ${0mq_server_files}
         ${server_context_files}
         ${utils_files}
         ${tracing_files}

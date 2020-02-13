@@ -128,7 +128,8 @@ SearchRequest::OnExecute() {
                               "The vector dimension must be equal to the table dimension.");
             }
             fiu_do_on("SearchRequest.OnExecute.invalid_dim", table_info.dimension_ = -1);
-            if (vectors_data_.float_data_.size() / vector_count != table_info.dimension_) {
+            if (not vectors_data_.float_data_.empty() and
+                vectors_data_.float_data_.size() / vector_count != table_info.dimension_) {
                 return Status(SERVER_INVALID_VECTOR_DIMENSION,
                               "The vector dimension must be equal to the table dimension.");
             }

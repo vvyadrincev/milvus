@@ -34,7 +34,7 @@ class RequestHandler {
 
     Status
     CreateTable(const std::shared_ptr<Context>& context, const std::string& table_name, int64_t dimension,
-                int64_t index_file_size, int64_t metric_type);
+                int64_t index_file_size, int64_t metric_type, const std::string& enc_type = "Flat");
 
     Status
     HasTable(const std::shared_ptr<Context>& context, const std::string& table_name, bool& has_table);
@@ -44,7 +44,7 @@ class RequestHandler {
 
     Status
     CreateIndex(const std::shared_ptr<Context>& context, const std::string& table_name, int64_t index_type,
-                int64_t nlist);
+                int64_t nlist, const std::string& enc_type = "Flat");
 
     Status
     Insert(const std::shared_ptr<Context>& context, const std::string& table_name, engine::VectorsData& vectors,

@@ -25,8 +25,9 @@
 #include "scheduler/SchedInst.h"
 #include "server/Config.h"
 #include "server/DBWrapper.h"
-#include "server/grpc_impl/GrpcServer.h"
 #include "server/web_impl/WebServer.h"
+//#include "server/grpc_impl/GrpcServer.h"
+#include "server/0mq_impl/0mqServer.h"
 #include "src/version.h"
 #include "storage/s3/S3ClientWrapper.h"
 #include "tracing/TracerUtil.h"
@@ -264,16 +265,18 @@ Server::StartService() {
     engine::KnowhereResource::Initialize();
     scheduler::StartSchedulerService();
     DBWrapper::GetInstance().StartService();
-    grpc::GrpcServer::GetInstance().Start();
-    web::WebServer::GetInstance().Start();
-    storage::S3ClientWrapper::GetInstance().StartService();
+    //web::WebServer::GetInstance().Start();
+    //storage::S3ClientWrapper::GetInstance().StartService();
+    // grpc::GrpcServer::GetInstance().Start();
+    zeromq::ZeroMQServer::GetInstance().Start();
 }
 
 void
 Server::StopService() {
-    storage::S3ClientWrapper::GetInstance().StopService();
-    web::WebServer::GetInstance().Stop();
-    grpc::GrpcServer::GetInstance().Stop();
+    //storage::S3ClientWrapper::GetInstance().StopService();
+    //web::WebServer::GetInstance().Stop();
+    // grpc::GrpcServer::GetInstance().Stop();
+    zeromq::ZeroMQServer::GetInstance().Stop();
     DBWrapper::GetInstance().StopService();
     scheduler::StopSchedulerService();
     engine::KnowhereResource::Finalize();

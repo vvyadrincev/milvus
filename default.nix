@@ -55,6 +55,9 @@ stdenv.mkDerivation rec {
     gmock
     opentracing-cpp
     aws-sdk-cpp
+    zeromq
+    cppzmq
+    libcbor
   ];
   builder=./core/build.sh;
 }
