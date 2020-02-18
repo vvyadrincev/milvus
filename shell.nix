@@ -1,5 +1,4 @@
 { pkgs ? (import <nixpkgs> {})
-, source ? ./.
 , version ? "dev"
 }:
 
@@ -33,7 +32,7 @@ in with pkgs;
 stdenv.mkDerivation rec {
   name = "milvus-${version}";
   inherit version;
-  src = lib.cleanSource source;
+  src = if lib.inNixShell then null else ./.;
 
   nativeBuildInputs = [ gcc cmake wget ];
   buildInputs = [
