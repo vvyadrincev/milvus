@@ -85,4 +85,20 @@ class IDMAP : public VectorIndex, public FaissBaseIndex {
 
 using IDMAPPtr = std::shared_ptr<IDMAP>;
 
+class GenericFlat : public IDMAP {
+public:
+
+    explicit GenericFlat(std::shared_ptr<faiss::Index> index) : IDMAP(std::move(index)) {
+    }
+
+    GenericFlat() = default;
+
+    void
+    set_index_model(IndexModelPtr model) override{}
+
+    IndexModelPtr
+    Train(const DatasetPtr& dataset, const Config& config) override;
+
+};
+
 }  // namespace knowhere

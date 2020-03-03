@@ -110,7 +110,7 @@ TEST_F(EngineTest, ENGINE_IMPL_TEST) {
     uint16_t dimension = 64;
     std::string file_path = "/tmp/milvus_index_1";
     auto engine_ptr = milvus::engine::EngineFactory::Build(
-        dimension, file_path, milvus::engine::EngineType::FAISS_IVFFLAT, milvus::engine::MetricType::IP, 1024);
+        dimension, file_path, milvus::engine::EngineType::FAISS_IVFFLAT, milvus::engine::MetricType::IP, 50);
 
     std::vector<float> data;
     std::vector<int64_t> ids;

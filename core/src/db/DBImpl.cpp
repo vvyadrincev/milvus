@@ -1124,7 +1124,8 @@ DBImpl::BuildTableIndexRecursively(const std::string& table_id, const TableIndex
     int times = 1;
 
     while (!table_files.empty()) {
-        ENGINE_LOG_DEBUG << "Non index files detected! Will build index " << times;
+        ENGINE_LOG_DEBUG << "Non index files detected! Will build index " << times
+                         <<" files: "<<table_files.size();
         if (index.engine_type_ != (int)EngineType::FAISS_IDMAP) {
             status = meta_ptr_->UpdateTableFilesToIndex(table_id);
         }

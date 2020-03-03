@@ -475,7 +475,8 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
     milvus::Status s = config.LoadConfigFile(config_path);
 
     milvus::engine::meta::TableSchema table_info = BuildTableSchema();
-    table_info.enc_type_ = "SQ8";
+    table_info.enc_type_ = "SQfp16";
+    table_info.nlist_ = 50;
     auto stat = db_->CreateTable(table_info);
 
     milvus::engine::meta::TableSchema table_info_get;
@@ -483,7 +484,8 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
     stat = db_->DescribeTable(table_info_get);
     ASSERT_TRUE(stat.ok());
     ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
-    ASSERT_EQ(table_info_get.enc_type_, "SQ8");
+    ASSERT_EQ(table_info_get.enc_type_, table_info.enc_type_);
+    ASSERT_EQ(table_info_get.nlist_, table_info.nlist_);
 
     // prepare raw data
     size_t nb = 30000;
@@ -506,6 +508,8 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
     stat = insert_data(nb/3, id, gen, db_);
     ASSERT_TRUE(stat.ok());
 
+    LOG(DEBUG) << "################# DATA INSERTED ##########################";
+
 
     milvus::engine::VectorsData vectors;
     vectors.id_array_.resize(nq);
@@ -526,11 +530,11 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
 
     milvus::engine::TableIndex index;
     index.enc_type_ = table_info.enc_type_;
-    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IDMAP;
+    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_FLAT;
     stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
-
     ASSERT_TRUE(stat.ok());
 
+    LOG(DEBUG) << "################# FLAT INDEX CREATED ##########################";
 
     {
         std::vector<std::string> tags;
@@ -545,16 +549,19 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
 
     }
 
+    LOG(DEBUG) << "################# FLAT SEARCH FINISHED ##########################";
 
     index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IVFFLAT;
+    index.nlist_ = table_info.nlist_;
     stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
     ASSERT_TRUE(stat.ok());
 
+    LOG(DEBUG) << "################# IVF,SQ16 INDEX CREATED ##########################";
     //Check table data after index recreation
     stat = db_->DescribeTable(table_info_get);
     ASSERT_TRUE(stat.ok());
     ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
-    ASSERT_EQ(table_info_get.enc_type_, "SQ8");
+    ASSERT_EQ(table_info_get.enc_type_, table_info.enc_type_);
 
     {
         std::vector<std::string> tags;
@@ -571,11 +578,15 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
 
     }
 
+    LOG(DEBUG) << "################# IVF,SQ16 SEARCH FINISHED ##########################";
+
     //recreate index with another encoding
     index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IVFFLAT;
     index.enc_type_ = "PQ16";
     stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
     ASSERT_TRUE(stat.ok());
+
+    LOG(DEBUG) << "################# IVF,PQ16 INDEX CREATED ##########################";
 
     //Check table data after index recreation
     stat = db_->DescribeTable(table_info_get);
@@ -598,6 +609,7 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
 
     }
 
+    LOG(DEBUG) << "################# IVF,PQ16 SEARCH FINISHED ##########################";
 
     {
         k = 3;

@@ -42,6 +42,7 @@ AdapterMgr::RegisterAdapter() {
     init_ = true;
 
     REGISTER_CONF_ADAPTER(ConfAdapter, IndexType::FAISS_IDMAP, idmap);
+    REGISTER_CONF_ADAPTER(ConfAdapter, IndexType::FAISS_FLAT, flat);
     REGISTER_CONF_ADAPTER(BinIDMAPConfAdapter, IndexType::FAISS_BIN_IDMAP, idmap_bin);
 
     REGISTER_CONF_ADAPTER(IVFConfAdapter, IndexType::FAISS_IVFFLAT_CPU, ivf_cpu);

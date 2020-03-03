@@ -77,13 +77,13 @@ static constexpr float TYPICAL_COUNT = 1000000.0;
 
 int64_t
 IVFConfAdapter::MatchNlist(const int64_t& size, const int64_t& nlist, const int64_t& per_nlist) {
-    if (size <= TYPICAL_COUNT / per_nlist + 1) {
-        // handle less row count, avoid nlist set to 0
-        return 1;
-    } else if (int(size / TYPICAL_COUNT) * nlist <= 0) {
-        // calculate a proper nlist if nlist not specified or size less than TYPICAL_COUNT
-        return int(size / TYPICAL_COUNT * per_nlist);
-    }
+    // if (size <= TYPICAL_COUNT / per_nlist + 1) {
+    //     // handle less row count, avoid nlist set to 0
+    //     return 1;
+    // } else if (int(size / TYPICAL_COUNT) * nlist <= 0) {
+    //     // calculate a proper nlist if nlist not specified or size less than TYPICAL_COUNT
+    //     return int(size / TYPICAL_COUNT * per_nlist);
+    // }
     return nlist;
 }
 

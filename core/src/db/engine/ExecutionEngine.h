@@ -40,7 +40,8 @@ enum class EngineType {
     FAISS_BIN_IDMAP,
     FAISS_BIN_IVFFLAT,
     HNSW,
-    MAX_VALUE = HNSW,
+    FAISS_FLAT, //12
+    MAX_VALUE = FAISS_FLAT,
 };
 
 enum class MetricType {

@@ -80,6 +80,10 @@ GetVecIndexFactory(const IndexType& type, const Config& cfg) {
             index = std::make_shared<knowhere::BinaryIDMAP>();
             return std::make_shared<BinBFIndex>(index);
         }
+        case IndexType::FAISS_FLAT : {
+            index = std::make_shared<knowhere::GenericFlat>();
+            break;
+        }
         case IndexType::FAISS_IVFFLAT_CPU: {
             index = std::make_shared<knowhere::GenericIVF>();
             // index = std::make_shared<knowhere::IVF>();

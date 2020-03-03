@@ -153,6 +153,10 @@ ExecutionEngineImpl::CreatetVecIndex(EngineType type) {
             index = GetVecIndexFactory(IndexType::FAISS_IDMAP);
             break;
         }
+        case EngineType::FAISS_FLAT: {
+            index = GetVecIndexFactory(IndexType::FAISS_FLAT);
+            break;
+        }
         case EngineType::FAISS_IVFFLAT: {
 #ifdef MILVUS_GPU_VERSION
             if (gpu_resource_enable)

@@ -194,4 +194,20 @@ IDMAP::Seal() {
     // do nothing
 }
 
+IndexModelPtr
+GenericFlat::Train(const DatasetPtr& dataset, const Config& config) {
+    config->CheckValid();
+
+    auto index_1 = faiss::index_factory(config->d, config->enc_type.c_str(),
+                                        GetMetricType(config->metric_type));
+
+    index_.reset(new faiss::IndexIDMap2(index_1));
+
+    GETTENSOR(dataset)
+
+    index_->train(rows, (float*)p_data);
+
+    return std::make_shared<IVFIndexModel>();
+}
+
 }  // namespace knowhere
