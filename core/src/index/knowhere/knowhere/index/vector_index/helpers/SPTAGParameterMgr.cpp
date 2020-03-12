@@ -45,7 +45,7 @@ SPTAGParameterMgr::SPTAGParameterMgr() {
     kdt_config_->refineiterations = 0;
     kdt_config_->cef = 1000;
     kdt_config_->maxcheckforrefinegraph = 10000;
-    kdt_config_->numofthreads = 1;
+    kdt_config_->numofthreads = 8;
     kdt_config_->maxcheck = 8192;
     kdt_config_->thresholdofnumberofcontinuousnobetterpropagation = 3;
     kdt_config_->numberofinitialdynamicpivots = 50;
@@ -65,7 +65,7 @@ SPTAGParameterMgr::SPTAGParameterMgr() {
     bkt_config_->refineiterations = 0;
     bkt_config_->cef = 1000;
     bkt_config_->maxcheckforrefinegraph = 10000;
-    bkt_config_->numofthreads = 1;
+    bkt_config_->numofthreads = 8;
     bkt_config_->maxcheck = 8192;
     bkt_config_->thresholdofnumberofcontinuousnobetterpropagation = 3;
     bkt_config_->numberofinitialdynamicpivots = 50;

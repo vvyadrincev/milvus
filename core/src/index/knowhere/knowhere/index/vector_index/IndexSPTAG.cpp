@@ -222,19 +222,19 @@ CPUSPTAGRNG::Search(const DatasetPtr& dataset, const Config& config) {
     //        config->CheckValid();  // throw exception
     //    }
 
-    auto p_data = dataset->Get<const float*>(meta::TENSOR);
-    for (auto i = 0; i < 10; ++i) {
-        for (auto j = 0; j < 10; ++j) {
-            std::cout << p_data[i * 10 + j] << " ";
-        }
-        std::cout << std::endl;
-    }
+    // auto p_data = dataset->Get<const float*>(meta::TENSOR);
+    // for (auto i = 0; i < 10; ++i) {
+    //     for (auto j = 0; j < 10; ++j) {
+    //         std::cout << p_data[i * 10 + j] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
     std::vector<SPTAG::QueryResult> query_results = ConvertToQueryResult(dataset, config);
 
 #pragma omp parallel for
     for (auto i = 0; i < query_results.size(); ++i) {
-        auto target = (float*)query_results[i].GetTarget();
-        std::cout << target[0] << ", " << target[1] << ", " << target[2] << std::endl;
+        // auto target = (float*)query_results[i].GetTarget();
+        // std::cout << target[0] << ", " << target[1] << ", " << target[2] << std::endl;
         index_ptr_->SearchIndex(query_results[i]);
     }
 

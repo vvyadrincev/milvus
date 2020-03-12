@@ -320,7 +320,7 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
     auto params = json::from_cbor(unpacker.buffer<char>(),
                                   unpacker.buffer<char>() + unpacker.size());
-    // std::cout<<"PARAMS: "<<params<<std::endl;
+    std::cout<<"PARAMS: "<<params<<std::endl;
 
     auto table_name = params.at("table_name").get<std::string>();
     vectors.table_id = params.value("query_ids_table_name", "");
