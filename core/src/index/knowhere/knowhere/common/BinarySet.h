@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <string.h>
 
 #include "Id.h"
 
@@ -33,6 +34,12 @@ struct Binary {
     int64_t size = 0;
 };
 using BinaryPtr = std::shared_ptr<Binary>;
+
+inline uint8_t* CopyBinary(const BinaryPtr& bin){
+    uint8_t* newdata = new uint8_t[bin->size];
+    memcpy(newdata, bin->data.get(), bin->size);
+    return newdata;
+}
 
 class BinarySet {
  public:

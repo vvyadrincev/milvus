@@ -47,7 +47,7 @@ class BuildIndexJob : public Job {
     bool
     AddToIndexFiles(const TableFileSchemaPtr& to_index_file);
 
-    Status&
+    void
     WaitBuildIndexFinish();
 
     void
