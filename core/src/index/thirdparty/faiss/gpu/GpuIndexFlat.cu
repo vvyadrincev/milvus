@@ -22,11 +22,13 @@ namespace faiss { namespace gpu {
 GpuIndexFlat::GpuIndexFlat(GpuResources* resources,
                            const faiss::IndexFlat* index,
                            GpuIndexFlatConfig config) :
-    GpuIndex(resources, index->d, index->metric_type, config),
+    GpuIndex(resources,
+             index->d,
+             index->metric_type,
+             index->metric_arg,
+             config),
     config_(std::move(config)),
     data_(nullptr) {
-  verifySettings_();
-
   // Flat index doesn't need training
   this->is_trained = true;
 
@@ -37,11 +39,9 @@ GpuIndexFlat::GpuIndexFlat(GpuResources* resources,
                            int dims,
                            faiss::MetricType metric,
                            GpuIndexFlatConfig config) :
-    GpuIndex(resources, dims, metric, config),
+    GpuIndex(resources, dims, metric, 0, config),
     config_(std::move(config)),
     data_(nullptr) {
-  verifySettings_();
-
   // Flat index doesn't need training
   this->is_trained = true;
 
@@ -49,9 +49,7 @@ GpuIndexFlat::GpuIndexFlat(GpuResources* resources,
   DeviceScope scope(device_);
   data_ = new FlatIndex(resources,
                         dims,
-                        metric == faiss::METRIC_L2,
                         config_.useFloat16,
-                        config_.useFloat16Accumulator,
                         config_.storeTransposed,
                         memorySpace_);
 }
@@ -64,8 +62,7 @@ void
 GpuIndexFlat::copyFrom(const faiss::IndexFlat* index) {
   DeviceScope scope(device_);
 
-  this->d = index->d;
-  this->metric_type = index->metric_type;
+  GpuIndex::copyFrom(index);
 
   // GPU code has 32 bit indices
   FAISS_THROW_IF_NOT_FMT(index->ntotal <=
@@ -74,14 +71,11 @@ GpuIndexFlat::copyFrom(const faiss::IndexFlat* index) {
                          "attempting to copy CPU index with %zu parameters",
                          (size_t) std::numeric_limits<int>::max(),
                          (size_t) index->ntotal);
-  this->ntotal = index->ntotal;
 
   delete data_;
   data_ = new FlatIndex(resources_,
                         this->d,
-                        index->metric_type == faiss::METRIC_L2,
                         config_.useFloat16,
-                        config_.useFloat16Accumulator,
                         config_.storeTransposed,
                         memorySpace_);
 
@@ -91,21 +85,13 @@ GpuIndexFlat::copyFrom(const faiss::IndexFlat* index) {
                index->ntotal,
                resources_->getDefaultStream(device_));
   }
-
-  xb_.clear();
-
-  if (config_.storeInCpu) {
-      xb_ = index->xb;
-  }
 }
 
 void
 GpuIndexFlat::copyTo(faiss::IndexFlat* index) const {
   DeviceScope scope(device_);
 
-  index->d = this->d;
-  index->ntotal = this->ntotal;
-  index->metric_type = this->metric_type;
+  GpuIndex::copyTo(index);
 
   FAISS_ASSERT(data_);
   FAISS_ASSERT(data_->getSize() == this->ntotal);
@@ -215,7 +201,8 @@ GpuIndexFlat::searchImpl_(int n,
   DeviceTensor<int, 2, true> outIntLabels(
     resources_->getMemoryManagerCurrentDevice(), {n, k}, stream);
 
-  data_->query(queries, k, outDistances, outIntLabels, true);
+  data_->query(queries, k, metric_type, metric_arg,
+               outDistances, outIntLabels, true);
 
   // Convert int to idx_t
   convertTensor<int, faiss::Index::idx_t, 2>(stream,
@@ -226,11 +213,6 @@ GpuIndexFlat::searchImpl_(int n,
 void
 GpuIndexFlat::reconstruct(faiss::Index::idx_t key,
                           float* out) const {
-  if(config_.storeInCpu && xb_.size() > 0) {
-      memcpy (out, &(this->xb_[key * this->d]), sizeof(*out) * this->d);
-      return;
-  }
-
   DeviceScope scope(device_);
 
   FAISS_THROW_IF_NOT_MSG(key < this->ntotal, "index out of bounds");
@@ -310,21 +292,6 @@ GpuIndexFlat::compute_residual_n(faiss::Index::idx_t n,
                          residualDevice);
 
   fromDevice<float, 2>(residualDevice, residuals, stream);
-}
-
-void
-GpuIndexFlat::verifySettings_() const {
-  // If we want Hgemm, ensure that it is supported on this device
-  if (config_.useFloat16Accumulator) {
-    FAISS_THROW_IF_NOT_MSG(config_.useFloat16,
-                       "useFloat16Accumulator can only be enabled "
-                       "with useFloat16");
-
-    FAISS_THROW_IF_NOT_FMT(getDeviceSupportsFloat16Math(config_.device),
-                       "Device %d does not support Hgemm "
-                       "(useFloat16Accumulator)",
-                       config_.device);
-  }
 }
 
 //

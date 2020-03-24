@@ -12,10 +12,12 @@
 
 
 #include <vector>
+#include <unordered_map>
 #include <stdint.h>
 
 #include <faiss/Index.h>
 #include <faiss/InvertedLists.h>
+#include <faiss/DirectMap.h>
 #include <faiss/Clustering.h>
 #include <faiss/utils/Heap.h>
 
@@ -29,10 +31,8 @@ namespace faiss {
  * of the lists (especially training)
  */
 struct Level1Quantizer {
-    Index * quantizer = nullptr;        ///< quantizer that maps vectors to inverted lists
-    Index * quantizer_backup = nullptr; ///< quantizer for backup
+    Index * quantizer;        ///< quantizer that maps vectors to inverted lists
     size_t nlist;             ///< number of possible key values
-
 
     /**
      * = 0: use the quantizer as index in a kmeans training
@@ -108,14 +108,18 @@ struct IndexIVF: Index, Level1Quantizer {
     /** Parallel mode determines how queries are parallelized with OpenMP
      *
      * 0 (default): parallelize over queries
-     * 1: parallelize over over inverted lists
+     * 1: parallelize over inverted lists
      * 2: parallelize over both
+     *
+     * PARALLEL_MODE_NO_HEAP_INIT: binary or with the previous to
+     * prevent the heap to be initialized and finalized
      */
     int parallel_mode;
+    const int PARALLEL_MODE_NO_HEAP_INIT = 1024;
 
-    /// map for direct access to the elements. Enables reconstruct().
-    bool maintain_direct_map;
-    std::vector <idx_t> direct_map;
+    /** optional map that maps back ids to invlist entries. This
+     *  enables reconstruct() */
+    DirectMap direct_map;
 
     /** The Inverted file takes a quantizer (an Index) on input,
      * which implements the function mapping a vector to a list
@@ -196,7 +200,18 @@ struct IndexIVF: Index, Level1Quantizer {
     virtual InvertedListScanner *get_InvertedListScanner (
         bool store_pairs=false) const;
 
+    /** reconstruct a vector. Works only if maintain_direct_map is set to 1 or 2 */
     void reconstruct (idx_t key, float* recons) const override;
+
+    /** Update a subset of vectors.
+     *
+     * The index must have a direct_map
+     *
+     * @param nv     nb of vectors to update
+     * @param idx    vector indices to update, size nv
+     * @param v      vectors of new values, size nv*d
+     */
+    virtual void update_vectors (int nv, const idx_t *idx, const float *v);
 
     /** Reconstruct a subset of the indexed vectors.
      *
@@ -257,13 +272,6 @@ struct IndexIVF: Index, Level1Quantizer {
     virtual void copy_subset_to (IndexIVF & other, int subset_type,
                                  idx_t a1, idx_t a2) const;
 
-    virtual void to_readonly();
-    virtual bool is_readonly() const;
-
-    virtual void backup_quantizer();
-
-    virtual void restore_quantizer();
-
     ~IndexIVF() override;
 
     size_t get_list_size (size_t list_no) const
@@ -276,6 +284,9 @@ struct IndexIVF: Index, Level1Quantizer {
      */
     void make_direct_map (bool new_maintain_direct_map=true);
 
+    void set_direct_map_type (DirectMap::Type type);
+
+
     /// replace the inverted lists, old one is deallocated if own_invlists
     void replace_invlists (InvertedLists *il, bool own=false);
 
@@ -284,8 +295,6 @@ struct IndexIVF: Index, Level1Quantizer {
 
     void sa_encode (idx_t n, const float *x,
                           uint8_t *bytes) const override;
-
-    void dump();
 
     IndexIVF ();
 };

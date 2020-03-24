@@ -19,103 +19,33 @@
 #include <faiss/gpu/utils/Float16.cuh>
 #include <faiss/gpu/utils/HostTensor.cuh>
 #include <faiss/gpu/utils/Transpose.cuh>
-#include <faiss/utils/utils.h>
 #include <limits>
 #include <thrust/host_vector.h>
 #include <unordered_map>
-#include <numeric>
-#include <chrono>
 
 namespace faiss { namespace gpu {
 
 IVFFlat::IVFFlat(GpuResources* resources,
                  FlatIndex* quantizer,
                  faiss::MetricType metric,
+                 float metricArg,
                  bool useResidual,
                  faiss::ScalarQuantizer* scalarQ,
                  IndicesOptions indicesOptions,
                  MemorySpace space) :
     IVFBase(resources,
+            metric,
+            metricArg,
             quantizer,
             scalarQ ? scalarQ->code_size :
             sizeof(float) * quantizer->getDim(),
             indicesOptions,
             space),
-    metric_(metric),
     useResidual_(useResidual),
     scalarQ_(scalarQ ? new GpuScalarQuantizer(*scalarQ) : nullptr) {
 }
 
 IVFFlat::~IVFFlat() {
-}
-
-
-void
-IVFFlat::copyCodeVectorsFromCpu(const float* vecs,
-                                const long* indices,
-                                const std::vector<size_t>& list_length) {
-    FAISS_ASSERT_FMT(list_length.size() == this->getNumLists(), "Expect list size %zu but %zu received!",
-                     this->getNumLists(), list_length.size());
-    int64_t numVecs = std::accumulate(list_length.begin(), list_length.end(), 0);
-    if (numVecs == 0) {
-        return;
-    }
-
-    auto stream = resources_->getDefaultStreamCurrentDevice();
-
-    deviceListLengths_ = list_length;
-
-    int64_t lengthInBytes = numVecs * bytesPerVector_;
-
-    // We only have int32 length representations on the GPU per each
-    // list; the length is in sizeof(char)
-    FAISS_ASSERT(deviceData_->size() + lengthInBytes <= std::numeric_limits<int64_t>::max());
-
-    std::chrono::high_resolution_clock::time_point time1 = std::chrono::high_resolution_clock::now();
-    deviceData_->append((unsigned char*) vecs,
-                            lengthInBytes,
-                            stream,
-                            true /* exact reserved size */);
-    std::chrono::high_resolution_clock::time_point time2 = std::chrono::high_resolution_clock::now();
-    copyIndicesFromCpu_(indices, list_length);
-    std::chrono::high_resolution_clock::time_point time3 = std::chrono::high_resolution_clock::now();
-    maxListLength_ = 0;
-
-    size_t listId = 0;
-    size_t pos = 0;
-    size_t size = 0;
-    thrust::host_vector<void*> hostPointers(deviceListData_.size(), nullptr);
-
-    for (auto& device_data : deviceListData_) {
-        auto data = deviceData_->data() + pos;
-
-        size = list_length[listId] * bytesPerVector_;
-
-        device_data->reset(data, size, size);
-        hostPointers[listId] = device_data->data();
-        maxListLength_ = std::max(maxListLength_, (int)list_length[listId]);
-        pos += size;
-        ++ listId;
-    }
-    std::chrono::high_resolution_clock::time_point time4 = std::chrono::high_resolution_clock::now();
-
-    deviceListDataPointers_ = hostPointers;
-
-    // device_vector add is potentially happening on a different stream
-    // than our default stream
-    if (stream != 0) {
-        streamWait({stream}, {0});
-    }
-    std::chrono::high_resolution_clock::time_point time5 = std::chrono::high_resolution_clock::now();
-
-    double span1 = (std::chrono::duration<double, std::micro>(time2 - time1)).count();
-    double span2 = (std::chrono::duration<double, std::micro>(time3 - time2)).count();
-    double span3 = (std::chrono::duration<double, std::micro>(time4 - time3)).count();
-    double span4 = (std::chrono::duration<double, std::micro>(time5 - time4)).count();
-    std::cout << "Span1: " << span1 * 0.001 << "ms" << std::endl;
-    std::cout << "Span2: " << span2 * 0.001 << "ms" << std::endl;
-    std::cout << "Span3: " << span3 * 0.001 << "ms" << std::endl;
-    std::cout << "Span4: " << span4 * 0.001 << "ms" << std::endl;
 }
 
 void
@@ -189,7 +119,8 @@ IVFFlat::classifyAndAddVectors(Tensor<float, 2, true>& vecs,
     listIds2d(mem, {vecs.getSize(0), 1},  stream);
   auto listIds = listIds2d.view<1>({vecs.getSize(0)});
 
-  quantizer_->query(vecs, 1, listDistance2d, listIds2d, false);
+  quantizer_->query(vecs, 1, metric_, metricArg_,
+                    listDistance2d, listIds2d, false);
 
   // Calculate residuals for these vectors, if needed
   DeviceTensor<float, 2, true>
@@ -368,6 +299,8 @@ IVFFlat::query(Tensor<float, 2, true>& queries,
   // internally and externally
   quantizer_->query(queries,
                     nprobe,
+                    metric_,
+                    metricArg_,
                     coarseDistances,
                     coarseIndices,
                     false);

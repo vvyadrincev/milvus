@@ -24,6 +24,7 @@ GpuIndexIVFScalarQuantizer::GpuIndexIVFScalarQuantizer(
     GpuIndexIVF(resources,
                 index->d,
                 index->metric_type,
+                index->metric_arg,
                 index->nlist,
                 config),
     ivfSQConfig_(config),
@@ -45,7 +46,7 @@ GpuIndexIVFScalarQuantizer::GpuIndexIVFScalarQuantizer(
   faiss::MetricType metric,
   bool encodeResidual,
   GpuIndexIVFScalarQuantizerConfig config) :
-    GpuIndexIVF(resources, dims, metric, nlist, config),
+    GpuIndexIVF(resources, dims, metric, 0, nlist, config),
     ivfSQConfig_(config),
     sq(dims, qtype),
     by_residual(encodeResidual),
@@ -69,6 +70,7 @@ void
 GpuIndexIVFScalarQuantizer::reserveMemory(size_t numVecs) {
   reserveMemoryVecs_ = numVecs;
   if (index_) {
+    DeviceScope scope(device_);
     index_->reserveMemory(numVecs);
   }
 }
@@ -100,33 +102,30 @@ GpuIndexIVFScalarQuantizer::copyFrom(
   index_ = new IVFFlat(resources_,
                        quantizer->getGpuData(),
                        index->metric_type,
+                       index->metric_arg,
                        by_residual,
                        &sq,
                        ivfSQConfig_.indicesOptions,
                        memorySpace_);
 
   InvertedLists* ivf = index->invlists;
-  if(ReadOnlyArrayInvertedLists* rol = dynamic_cast<ReadOnlyArrayInvertedLists*>(ivf)) {
-      index_->copyCodeVectorsFromCpu((const float* )(rol->pin_readonly_codes->data),
-                                     (const long *)(rol->pin_readonly_ids->data), rol->readonly_length);
-  } else {
-      for (size_t i = 0; i < ivf->nlist; ++i) {
-          auto numVecs = ivf->list_size(i);
 
-          // GPU index can only support max int entries per list
-          FAISS_THROW_IF_NOT_FMT(numVecs <=
-                                 (size_t) std::numeric_limits<int>::max(),
-                                 "GPU inverted list can only support "
-                                 "%zu entries; %zu found",
-                                 (size_t) std::numeric_limits<int>::max(),
-                                 numVecs);
+  for (size_t i = 0; i < ivf->nlist; ++i) {
+    auto numVecs = ivf->list_size(i);
 
-          index_->addCodeVectorsFromCpu(
-                  i,
-                  (const unsigned char*) ivf->get_codes(i),
-                  ivf->get_ids(i),
-                  numVecs);
-      }
+    // GPU index can only support max int entries per list
+    FAISS_THROW_IF_NOT_FMT(numVecs <=
+                           (size_t) std::numeric_limits<int>::max(),
+                           "GPU inverted list can only support "
+                           "%zu entries; %zu found",
+                           (size_t) std::numeric_limits<int>::max(),
+                           numVecs);
+
+    index_->addCodeVectorsFromCpu(
+      i,
+      (const unsigned char*) ivf->get_codes(i),
+      ivf->get_ids(i),
+      numVecs);
   }
 }
 
@@ -143,8 +142,8 @@ GpuIndexIVFScalarQuantizer::copyTo(
 
   GpuIndexIVF::copyTo(index);
   index->sq = sq;
-  index->by_residual = by_residual;
   index->code_size = sq.code_size;
+  index->by_residual = by_residual;
 
   InvertedLists* ivf = new ArrayInvertedLists(nlist, index->code_size);
   index->replace_invlists(ivf, true);
@@ -219,6 +218,7 @@ GpuIndexIVFScalarQuantizer::train(Index::idx_t n, const float* x) {
   index_ = new IVFFlat(resources_,
                        quantizer->getGpuData(),
                        this->metric_type,
+                       this->metric_arg,
                        by_residual,
                        &sq,
                        ivfSQConfig_.indicesOptions,

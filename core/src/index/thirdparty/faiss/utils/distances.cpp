@@ -340,78 +340,7 @@ static void knn_L2sqr_blas (const float * x,
 
 }
 
-template<class DistanceCorrection>
-static void knn_jaccard_blas (const float * x,
-                              const float * y,
-                              size_t d, size_t nx, size_t ny,
-                              float_maxheap_array_t * res,
-                              const DistanceCorrection &corr)
-{
-    res->heapify ();
 
-    // BLAS does not like empty matrices
-    if (nx == 0 || ny == 0) return;
-
-    size_t k = res->k;
-
-    /* block sizes */
-    const size_t bs_x = 4096, bs_y = 1024;
-    // const size_t bs_x = 16, bs_y = 16;
-    float *ip_block = new float[bs_x * bs_y];
-    float *x_norms = new float[nx];
-    float *y_norms = new float[ny];
-    ScopeDeleter<float> del1(ip_block), del3(x_norms), del2(y_norms);
-
-    fvec_norms_L2sqr (x_norms, x, d, nx);
-    fvec_norms_L2sqr (y_norms, y, d, ny);
-
-
-    for (size_t i0 = 0; i0 < nx; i0 += bs_x) {
-        size_t i1 = i0 + bs_x;
-        if(i1 > nx) i1 = nx;
-
-        for (size_t j0 = 0; j0 < ny; j0 += bs_y) {
-            size_t j1 = j0 + bs_y;
-            if (j1 > ny) j1 = ny;
-            /* compute the actual dot products */
-            {
-                float one = 1, zero = 0;
-                FINTEGER nyi = j1 - j0, nxi = i1 - i0, di = d;
-                sgemm_ ("Transpose", "Not transpose", &nyi, &nxi, &di, &one,
-                        y + j0 * d, &di,
-                        x + i0 * d, &di, &zero,
-                        ip_block, &nyi);
-            }
-
-            /* collect minima */
-#pragma omp parallel for
-            for (size_t i = i0; i < i1; i++) {
-                float * __restrict simi = res->get_val(i);
-                int64_t * __restrict idxi = res->get_ids (i);
-                const float *ip_line = ip_block + (i - i0) * (j1 - j0);
-
-                for (size_t j = j0; j < j1; j++) {
-                    float ip = *ip_line++;
-                    float dis = 1.0 - ip / (x_norms[i] + y_norms[j] - ip);
-
-                    // negative values can occur for identical vectors
-                    // due to roundoff errors
-                    if (dis < 0) dis = 0;
-
-                    dis = corr (dis, i, j);
-
-                    if (dis < simi[0]) {
-                        maxheap_pop (k, simi, idxi);
-                        maxheap_push (k, simi, idxi, dis, j);
-                    }
-                }
-            }
-        }
-        InterruptCallback::check ();
-    }
-    res->reorder ();
-
-}
 
 
 
@@ -430,7 +359,7 @@ void knn_inner_product (const float * x,
         size_t d, size_t nx, size_t ny,
         float_minheap_array_t * res)
 {
-    if (d % 4 == 0 && nx < distance_compute_blas_threshold) {
+    if (nx < distance_compute_blas_threshold) {
         knn_inner_product_sse (x, y, d, nx, ny, res);
     } else {
         knn_inner_product_blas (x, y, d, nx, ny, res);
@@ -450,25 +379,11 @@ void knn_L2sqr (const float * x,
                 size_t d, size_t nx, size_t ny,
                 float_maxheap_array_t * res)
 {
-    if (d % 4 == 0 && nx < distance_compute_blas_threshold) {
+    if (nx < distance_compute_blas_threshold) {
         knn_L2sqr_sse (x, y, d, nx, ny, res);
     } else {
         NopDistanceCorrection nop;
         knn_L2sqr_blas (x, y, d, nx, ny, res, nop);
-    }
-}
-
-void knn_jaccard (const float * x,
-                  const float * y,
-                  size_t d, size_t nx, size_t ny,
-                  float_maxheap_array_t * res)
-{
-    if (d % 4 == 0 && nx < distance_compute_blas_threshold) {
-//        knn_jaccard_sse (x, y, d, nx, ny, res);
-        printf("sse_not implemented!\n");
-    } else {
-        NopDistanceCorrection nop;
-        knn_jaccard_blas (x, y, d, nx, ny, res, nop);
     }
 }
 
@@ -728,7 +643,6 @@ static void range_search_sse (const float * x,
                 float radius,
                 RangeSearchResult *res)
 {
-    FAISS_THROW_IF_NOT (d % 4 == 0);
 
 #pragma omp parallel
     {
@@ -778,7 +692,7 @@ void range_search_L2sqr (
         RangeSearchResult *res)
 {
 
-    if (d % 4 == 0 && nx < distance_compute_blas_threshold) {
+    if (nx < distance_compute_blas_threshold) {
         range_search_sse<true> (x, y, d, nx, ny, radius, res);
     } else {
         range_search_blas<true> (x, y, d, nx, ny, radius, res);
@@ -793,7 +707,7 @@ void range_search_inner_product (
         RangeSearchResult *res)
 {
 
-    if (d % 4 == 0 && nx < distance_compute_blas_threshold) {
+    if (nx < distance_compute_blas_threshold) {
         range_search_sse<false> (x, y, d, nx, ny, radius, res);
     } else {
         range_search_blas<false> (x, y, d, nx, ny, radius, res);

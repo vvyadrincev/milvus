@@ -20,6 +20,7 @@ class IVFFlat : public IVFBase {
           /// We do not own this reference
           FlatIndex* quantizer,
           faiss::MetricType metric,
+          float metricArg,
           bool useResidual,
           /// Optional ScalarQuantizer
           faiss::ScalarQuantizer* scalarQ,
@@ -35,11 +36,7 @@ class IVFFlat : public IVFBase {
                              const long* indices,
                              size_t numVecs);
 
-  void copyCodeVectorsFromCpu(const float* vecs,
-                              const long* indices,
-                              const std::vector<size_t>& list_length);
-
-    /// Adds the given vectors to this index.
+  /// Adds the given vectors to this index.
   /// The input data must be on our current device.
   /// Returns the number of vectors successfully added. Vectors may
   /// not be able to be added because they contain NaNs.
@@ -59,9 +56,6 @@ class IVFFlat : public IVFBase {
   size_t getVectorMemorySize() const;
 
  private:
-  /// Metric type used
-  faiss::MetricType metric_;
-
   /// Do we encode the residual from a coarse quantizer or not?
   bool useResidual_;
 
