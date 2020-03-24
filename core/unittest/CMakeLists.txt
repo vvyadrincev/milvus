@@ -74,6 +74,10 @@ set(grpc_server_files
         ${grpc_interceptor_files}
         )
 
+aux_source_directory(${MILVUS_ENGINE_SRC}/server/0mq_impl 0mq_impl_files)
+set(0mq_server_files
+  ${0mq_impl_files}
+  )
 aux_source_directory(${MILVUS_ENGINE_SRC}/server/web_impl/handler web_handler_files)
 aux_source_directory(${MILVUS_ENGINE_SRC}/server/web_impl/component web_conponent_files)
 aux_source_directory(${MILVUS_ENGINE_SRC}/server/web_impl/controller web_controller_files)
@@ -171,13 +175,12 @@ set(unittest_libs ${unittest_libs}
     )
 
 if (MILVUS_GPU_VERSION)
-    include_directories("${CUDA_INCLUDE_DIRS}")
-    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-    set(unittest_libs ${unittest_libs}
-            ${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs/libnvidia-ml.so
-            cudart
-            cublas
-            )
+    # include_directories("${CUDA_INCLUDE_DIRS}")
+    # link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+
+    set(cuda_lib ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES}
+      ${CUDA_TOOLKIT_ROOT_DIR}/lib/stubs/libnvidia-ml.so)
+    set(unittest_libs ${unittest_libs} ${cuda_lib})
     aux_source_directory(${MILVUS_ENGINE_SRC}/wrapper/gpu wrapper_gpu_files)
     set(common_files ${common_files}
             ${wrapper_gpu_files}

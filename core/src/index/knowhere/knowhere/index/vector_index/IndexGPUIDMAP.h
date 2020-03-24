@@ -29,7 +29,10 @@ namespace knowhere {
 
 class GPUIDMAP : public IDMAP, public GPUIndex {
  public:
-    explicit GPUIDMAP(std::shared_ptr<faiss::Index> index, const int64_t& device_id, ResPtr& res)
+    explicit GPUIDMAP(const int& device_id) : IDMAP(), GPUIndex(device_id) {
+    }
+
+    explicit GPUIDMAP(std::shared_ptr<faiss::Index> index, const int64_t& device_id, const ResPtr& res)
         : IDMAP(std::move(index)), GPUIndex(device_id, res) {
     }
 
@@ -46,7 +49,7 @@ class GPUIDMAP : public IDMAP, public GPUIndex {
     //    Clone() override;
 
     VectorIndexPtr
-    CopyGpuToGpu(const int64_t& device_id, const Config& config) override;
+    CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size) override;
 
     void
     GenGraph(const float* data, const int64_t& k, Graph& graph, const Config& config);
@@ -63,5 +66,34 @@ class GPUIDMAP : public IDMAP, public GPUIndex {
 };
 
 using GPUIDMAPPtr = std::shared_ptr<GPUIDMAP>;
+
+class GPUFlatFP16 : public GPUIDMAP {
+public:
+    explicit GPUFlatFP16(const int& device_id) : GPUIDMAP(device_id){
+    }
+
+    GPUFlatFP16(std::shared_ptr<faiss::Index> index, const int64_t& device_id, const ResPtr& res):
+        GPUIDMAP(index, device_id, res)
+    {}
+
+
+    void
+    set_index_model(IndexModelPtr model) override{}
+
+    IndexModelPtr
+    Train(const DatasetPtr& dataset, const Config& config) override;
+
+    VectorIndexPtr
+    CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size) override;
+
+protected:
+    BinarySet
+    SerializeImpl() override;
+
+    void
+    LoadImpl(const BinarySet& index_binary)override;
+
+    uint64_t LoadToGPU();
+};
 
 }  // namespace knowhere

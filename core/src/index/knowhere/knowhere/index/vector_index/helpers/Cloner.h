@@ -24,7 +24,7 @@ namespace cloner {
 
 // TODO(linxj): rename CopyToGpu
 extern VectorIndexPtr
-CopyCpuToGpu(const VectorIndexPtr& index, const int64_t& device_id, const Config& config);
+CopyCpuToGpu(const VectorIndexPtr& index, const int64_t& device_id, const Config& config, size_t& size);
 
 extern VectorIndexPtr
 CopyGpuToCpu(const VectorIndexPtr& index, const Config& config);

@@ -37,7 +37,7 @@ class GPUIndex {
     CopyGpuToCpu(const Config& config) = 0;
 
     virtual VectorIndexPtr
-    CopyGpuToGpu(const int64_t& device_id, const Config& config) = 0;
+    CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size) = 0;
 
     void
     SetGpuDevice(const int& gpu_id);
@@ -50,13 +50,13 @@ class GPUIndex {
     ResWPtr res_;
 };
 
-class GPUIVF : public IVF, public GPUIndex {
+class GPUIVF : public GenericIVF, public GPUIndex {
  public:
-    explicit GPUIVF(const int& device_id) : IVF(), GPUIndex(device_id) {
+    explicit GPUIVF(const int& device_id) : GenericIVF(), GPUIndex(device_id) {
     }
 
-    explicit GPUIVF(std::shared_ptr<faiss::Index> index, const int64_t& device_id, ResPtr& resource)
-        : IVF(std::move(index)), GPUIndex(device_id, resource) {
+    explicit GPUIVF(std::shared_ptr<faiss::Index> index, const int64_t& device_id, const ResPtr& resource)
+        : GenericIVF(std::move(index)), GPUIndex(device_id, resource) {
     }
 
     IndexModelPtr
@@ -73,12 +73,16 @@ class GPUIVF : public IVF, public GPUIndex {
     CopyGpuToCpu(const Config& config) override;
 
     VectorIndexPtr
-    CopyGpuToGpu(const int64_t& device_id, const Config& config) override;
+    CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size) override;
 
     //    VectorIndexPtr
     //    Clone() final;
 
  protected:
+
+    virtual
+    void set_nprobe(size_t nprobe);
+
     void
     search_impl(int64_t n, const float* data, int64_t k, float* distances, int64_t* labels, const Config& cfg) override;
 
@@ -88,5 +92,42 @@ class GPUIVF : public IVF, public GPUIndex {
     void
     LoadImpl(const BinarySet& index_binary) override;
 };
+
+
+class GenericGPUIVF : public GPUIVF {
+public:
+
+    explicit GenericGPUIVF(const int& device_id) : GPUIVF(device_id){
+    }
+
+    explicit GenericGPUIVF(std::shared_ptr<faiss::Index> index, const int64_t& device_id,
+                           const ResPtr& resource)
+        : GPUIVF(index, device_id, resource) {
+    }
+
+    void
+    set_index_model(IndexModelPtr model) override{}
+
+    IndexModelPtr
+    Train(const DatasetPtr& dataset, const Config& config) override;
+
+
+    VectorIndexPtr
+    CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size)override;
+
+protected:
+    void set_nprobe(size_t nprobe)override;
+
+    BinarySet
+    SerializeImpl() override;
+
+    void
+    LoadImpl(const BinarySet& index_binary)override;
+
+    uint64_t
+    LoadToGPU();
+
+};
+
 
 }  // namespace knowhere

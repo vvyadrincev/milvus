@@ -75,6 +75,13 @@ class BinarySet {
         binary_map_.clear();
     }
 
+    uint64_t Size()const{
+        uint64_t total_size = 0;
+        for (const auto& p : binary_map_)
+            total_size += p.second->size;
+        return total_size;
+    }
+
  public:
     std::map<std::string, BinaryPtr> binary_map_;
 };

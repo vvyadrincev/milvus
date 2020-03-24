@@ -21,10 +21,14 @@
 #include <fiu-control.h>
 #include <fiu-local.h>
 
+
+#include <faiss/utils/distances.h>
+
 #include <boost/filesystem.hpp>
 #include <random>
 #include <thread>
 
+#include "cache/GpuCacheMgr.h"
 #include "cache/CpuCacheMgr.h"
 #include "db/Constants.h"
 #include "db/DB.h"
@@ -438,7 +442,9 @@ TEST_F(DBTest, SEARCH_TEST) {
 }
 
 template<class Gen, class DB>
-auto insert_data(size_t nb, size_t& first_id, Gen& gen, DB& db){
+auto insert_data(size_t nb, size_t& first_id, Gen& gen, DB& db,
+                 const std::string& table_name = TABLE_NAME,
+                 bool l2_renorm = false){
     milvus::engine::VectorsData vectors;
     vectors.float_data_.resize(nb * TABLE_DIM);
     vectors.id_array_.resize(nb);
@@ -451,8 +457,13 @@ auto insert_data(size_t nb, size_t& first_id, Gen& gen, DB& db){
             vectors.id_array_[i] = first_id++;
         }
     }
+    if (l2_renorm)
+        faiss::fvec_renorm_L2(vectors.float_data_.size() / vectors.vector_count_,
+                              vectors.vector_count_,
+                              vectors.float_data_.data());
 
-    return db->InsertVectors(TABLE_NAME, "", vectors);
+
+    return db->InsertVectors(table_name, "", vectors);
 
 }
 
@@ -469,10 +480,6 @@ struct DBTestExt : public DBTest{
 
 TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
     milvus::scheduler::OptimizerInst::GetInstance()->Init();
-    std::string config_path(CONFIG_PATH);
-    config_path += CONFIG_FILE;
-    milvus::server::Config& config = milvus::server::Config::GetInstance();
-    milvus::Status s = config.LoadConfigFile(config_path);
 
     milvus::engine::meta::TableSchema table_info = BuildTableSchema();
     table_info.enc_type_ = "SQfp16";
@@ -540,12 +547,17 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
         std::vector<std::string> tags;
         milvus::engine::ResultIds result_ids;
         milvus::engine::ResultDistances result_distances;
+        ASSERT_EQ(0, milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage());
+
         stat = db_->Query(dummy_context_, TABLE_NAME,
                           tags, k, 10, vectors, result_ids, result_distances);
 
         ASSERT_TRUE(stat.ok());
         //first query id should be not found
         ASSERT_EQ(etal, result_ids);
+        ASSERT_GE(milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage(), nb * TABLE_DIM * 2);
+        ASSERT_LE(milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage(), nb * TABLE_DIM * 2 + nb * 8 + 1024);
+        milvus::cache::CpuCacheMgr::GetInstance()->ClearCache();
 
     }
 
@@ -576,23 +588,27 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
         ASSERT_TRUE(stat.ok());
         ASSERT_EQ(etal, result_ids);
 
+        ASSERT_GE(milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage(), nb * TABLE_DIM * 2);
+        ASSERT_LE(milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage(), nb * TABLE_DIM * 3);
+        milvus::cache::CpuCacheMgr::GetInstance()->ClearCache();
+
     }
 
     LOG(DEBUG) << "################# IVF,SQ16 SEARCH FINISHED ##########################";
 
     //recreate index with another encoding
     index.engine_type_ = (int)milvus::engine::EngineType::FAISS_IVFFLAT;
-    index.enc_type_ = "PQ16";
+    index.enc_type_ = "PQ4";
     stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
     ASSERT_TRUE(stat.ok());
 
-    LOG(DEBUG) << "################# IVF,PQ16 INDEX CREATED ##########################";
+    LOG(DEBUG) << "################# IVF,PQ4 INDEX CREATED ##########################";
 
     //Check table data after index recreation
     stat = db_->DescribeTable(table_info_get);
     ASSERT_TRUE(stat.ok());
     ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
-    ASSERT_EQ(table_info_get.enc_type_, "PQ16");
+    ASSERT_EQ(table_info_get.enc_type_, "PQ4");
 
     {
         std::vector<std::string> tags;
@@ -609,7 +625,7 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
 
     }
 
-    LOG(DEBUG) << "################# IVF,PQ16 SEARCH FINISHED ##########################";
+    LOG(DEBUG) << "################# IVF,PQ4 SEARCH FINISHED ##########################";
 
     {
         k = 3;
@@ -638,6 +654,159 @@ TEST_F(DBTestExt, SEARCH_BY_ID_TEST) {
         ASSERT_NE(etal, top2);
     }
 }
+#ifdef MILVUS_GPU_VERSION
+TEST_F(DBTest, GPU_INDEXES_TEST){
+    milvus::scheduler::OptimizerInst::GetInstance()->Init();
+    milvus::engine::meta::TableSchema table_info = BuildTableSchema();
+    table_info.nlist_ = 50;
+    table_info.metric_type_ = (int)milvus::engine::MetricType::IP;
+
+    auto stat = db_->CreateTable(table_info);
+    ASSERT_TRUE(stat.ok());
+
+    milvus::engine::meta::TableSchema table_info_get;
+    table_info_get.table_id_ = TABLE_NAME;
+    stat = db_->DescribeTable(table_info_get);
+    ASSERT_TRUE(stat.ok());
+    ASSERT_EQ(table_info_get.dimension_, TABLE_DIM);
+    ASSERT_EQ(table_info_get.nlist_, table_info.nlist_);
+
+    // prepare raw data
+    size_t nb = 30000;
+    size_t nq = 30;
+    size_t k = 1;
+
+    size_t first_id = 500000;
+    {
+        std::mt19937 gen(0);
+        size_t id = first_id;
+        stat = insert_data(nb, id, gen, db_, TABLE_NAME, true);
+        ASSERT_TRUE(stat.ok());
+    }
+
+    {
+        auto temp = BuildTableSchema();
+        temp.table_id_ = "table_on_cpu";
+        auto stat = db_->CreateTable(temp);
+        ASSERT_TRUE(stat.ok());
+
+        std::mt19937 gen(0);
+        size_t id = first_id;
+        stat = insert_data(nb, id, gen, db_, temp.table_id_, true);
+        ASSERT_TRUE(stat.ok());
+    }
+
+    LOG(DEBUG) << "################# DATA INSERTED ##########################";
+
+    milvus::engine::VectorsData vectors;
+    vectors.table_id = "table_on_cpu";
+    vectors.id_array_.resize(nq);
+    vectors.vector_count_ = nq;
+    std::uniform_int_distribution<> dis_xq(first_id, first_id + nb);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    for (size_t i = 0; i < nq; i++) {
+        vectors.id_array_[i] = dis_xq(gen);
+    }
+    //add some id not in db
+    vectors.id_array_[0] = first_id - 1;
+    vectors.id_array_[nq-2] = first_id + nb + 2;
+    auto etal = vectors.id_array_;
+    etal[0] = 0;
+    etal[nq-2] = 0;
+
+
+    milvus::engine::TableIndex index;
+    index.enc_type_ = "Flat";
+    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_GPU_FLAT_FP16;
+    stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+    ASSERT_TRUE(stat.ok());
+
+    LOG(DEBUG) << "################# FLAT INDEX CREATED ##########################";
+
+    {
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        ASSERT_EQ(0, milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage());
+        ASSERT_EQ(0, milvus::cache::GpuCacheMgr::GetInstance(0)->CacheUsage());
+
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+
+        ASSERT_TRUE(stat.ok());
+        //first query id should be not found
+        ASSERT_EQ(etal, result_ids);
+        ASSERT_EQ(milvus::cache::CpuCacheMgr::GetInstance()->ItemCount(), 1);
+        ASSERT_GE(milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage(), nb * TABLE_DIM * 4);
+        ASSERT_LE(milvus::cache::CpuCacheMgr::GetInstance()->CacheUsage(), nb * TABLE_DIM * 4 + nb * 8 + 1024);
+
+        ASSERT_GE(milvus::cache::GpuCacheMgr::GetInstance(0)->CacheUsage(), nb * TABLE_DIM * 2);
+        ASSERT_LE(milvus::cache::GpuCacheMgr::GetInstance(0)->CacheUsage(), nb * TABLE_DIM * 2 + nb * 8 + 1024);
+        milvus::cache::CpuCacheMgr::GetInstance()->ClearCache();
+        milvus::cache::GpuCacheMgr::GetInstance(0)->ClearCache();
+
+    }
+    LOG(DEBUG) << "################# FLAT SEARCH FINISHED ##########################";
+
+    index.engine_type_ = (int)milvus::engine::EngineType::FAISS_GPU_IVF_FP16;
+    index.nlist_ = table_info.nlist_;
+    index.enc_type_ = "SQ8";
+    stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+    ASSERT_TRUE(stat.ok());
+
+    LOG(DEBUG) << "################# IVF,SQ8 INDEX CREATED ##########################";
+    {
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+        LOG(DEBUG) << "dist="<<result_distances;
+        LOG(DEBUG) << "query=" << vectors.id_array_;
+        LOG(DEBUG) << "result=" << result_ids;
+
+        ASSERT_TRUE(stat.ok());
+        ASSERT_EQ(etal, result_ids);
+
+        ASSERT_GE(milvus::cache::GpuCacheMgr::GetInstance(0)->CacheUsage(), nb * TABLE_DIM);
+        ASSERT_LE(milvus::cache::GpuCacheMgr::GetInstance(0)->CacheUsage(), nb * TABLE_DIM * 2);
+        milvus::cache::CpuCacheMgr::GetInstance()->ClearCache();
+        milvus::cache::GpuCacheMgr::GetInstance(0)->ClearCache();
+
+    }
+
+    LOG(DEBUG) << "################# IVF,SQ8 SEARCH FINISHED ##########################";
+
+    //recreate index with another encoding
+    // index.enc_type_ = "PQ4";
+    // stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+    // ASSERT_TRUE(stat.ok());
+
+    // LOG(DEBUG) << "################# IVF,PQ4 INDEX CREATED ##########################";
+
+    // {
+    //     std::vector<std::string> tags;
+    //     milvus::engine::ResultIds result_ids;
+    //     milvus::engine::ResultDistances result_distances;
+    //     stat = db_->Query(dummy_context_, TABLE_NAME,
+    //                       tags, k, 10, vectors, result_ids, result_distances);
+    //     LOG(DEBUG) << "dist="<<result_distances;
+    //     LOG(DEBUG) << "query=" << vectors.id_array_;
+    //     LOG(DEBUG) << "result=" << result_ids;
+
+    //     ASSERT_TRUE(stat.ok());
+    //     ASSERT_EQ(etal, result_ids);
+
+    // }
+
+    // LOG(DEBUG) << "################# IVF,PQ4 SEARCH FINISHED ##########################";
+
+}
+
+#endif
 
 
 TEST_F(DBTest, PRELOADTABLE_TEST) {

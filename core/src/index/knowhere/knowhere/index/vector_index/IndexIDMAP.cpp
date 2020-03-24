@@ -157,7 +157,9 @@ IDMAP::Train(const Config& config) {
     //                                     GetMetricType(config->metric_type));
     auto index_1 = new faiss::IndexFlat (config->d, GetMetricType(config->metric_type));
 
-    index_.reset(new faiss::IndexIDMap2(index_1));
+    auto idmap = new faiss::IndexIDMap2(index_1);
+    idmap->own_fields = true;
+    index_.reset(idmap);
 }
 
 // VectorIndexPtr
@@ -201,13 +203,15 @@ GenericFlat::Train(const DatasetPtr& dataset, const Config& config) {
     auto index_1 = faiss::index_factory(config->d, config->enc_type.c_str(),
                                         GetMetricType(config->metric_type));
 
-    index_.reset(new faiss::IndexIDMap2(index_1));
+    auto idmap = new faiss::IndexIDMap2(index_1);
+    idmap->own_fields = true;
+    index_.reset(idmap);
 
     GETTENSOR(dataset)
 
     index_->train(rows, (float*)p_data);
 
-    return std::make_shared<IVFIndexModel>();
+    return nullptr;
 }
 
 }  // namespace knowhere

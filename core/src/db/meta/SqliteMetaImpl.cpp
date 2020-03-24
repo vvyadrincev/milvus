@@ -685,7 +685,7 @@ SqliteMetaImpl::UpdateTableIndex(const std::string& table_id, const TableIndex& 
 }
 
 Status
-SqliteMetaImpl::UpdateTableFilesToIndex(const std::string& table_id) {
+SqliteMetaImpl::UpdateTableFilesToIndex(const std::string& table_id, int32_t engine_type) {
     try {
         server::MetricCollector metric;
         fiu_do_on("SqliteMetaImpl.UpdateTableFilesToIndex.throw_exception", throw std::exception());
@@ -695,7 +695,8 @@ SqliteMetaImpl::UpdateTableFilesToIndex(const std::string& table_id) {
 
         ConnectorPtr->update_all(
             set(
-                c(&TableFileSchema::file_type_) = (int)TableFileSchema::TO_INDEX),
+                c(&TableFileSchema::file_type_) = (int)TableFileSchema::TO_INDEX,
+                c(&TableFileSchema::engine_type_) = engine_type),
             where(
                 c(&TableFileSchema::table_id_) == table_id and
                 c(&TableFileSchema::row_count_) >= meta::BUILD_INDEX_THRESHOLD and

@@ -52,6 +52,8 @@ enum class IndexType {
     SPTAG_BKT_RNT_CPU,
     HNSW,
     FAISS_FLAT,
+    FAISS_GPU_FLAT_FP16,
+    FAISS_GPU_IVF_FP16,
     FAISS_BIN_IDMAP = 100,
     FAISS_BIN_IVFLAT_CPU = 101,
 };

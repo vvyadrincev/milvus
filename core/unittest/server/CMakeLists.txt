@@ -47,6 +47,7 @@ set(server_test_files
         ${common_files}
         ${server_files}
         ${grpc_server_files}
+        ${0mq_server_files}
         ${grpc_service_files}
         ${server_delivery_files}
         ${web_server_files}
@@ -65,6 +66,7 @@ target_link_libraries(test_server
         ${unittest_libs}
         oatpp
         zmq
+        cbor
         )
 
 install(TARGETS test_server DESTINATION unittest)

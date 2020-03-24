@@ -41,7 +41,9 @@ enum class EngineType {
     FAISS_BIN_IVFFLAT,
     HNSW,
     FAISS_FLAT, //12
-    MAX_VALUE = FAISS_FLAT,
+    FAISS_GPU_FLAT_FP16, //13
+    FAISS_GPU_IVF_FP16, //14
+    MAX_VALUE = FAISS_GPU_IVF_FP16,
 };
 
 enum class MetricType {

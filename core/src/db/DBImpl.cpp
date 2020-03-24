@@ -471,19 +471,31 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
             status = GetFilesToSearch(partition_name, ids, dates, files_array);
         }
     }
+
+    ENGINE_LOG_DEBUG << "CPU cache info";
+    cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info before query
+    ENGINE_LOG_DEBUG << "GPU cache info";
+    cache::GpuCacheMgr::GetInstance(0)->PrintInfo();  // print cache info before query
+
     std::vector<bool> found_query_ids;
     LoadVectors(vectors.id_array_, direct_files, found_query_ids,
                 const_cast<std::vector<float>&>(vectors.float_data_));
 
 
-    cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info before query
     status = QueryAsync(query_ctx, table_id, files_array, k, nprobe, vectors, result_ids, result_distances);
+    ENGINE_LOG_DEBUG << "CPU cache info";
     cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info after query
+    ENGINE_LOG_DEBUG << "GPU cache info";
+    cache::GpuCacheMgr::GetInstance(0)->PrintInfo();  // print cache info before query
 
     query_ctx->GetTraceContext()->GetSpan()->Finish();
 
     if (not status.ok())
         return status;
+
+    if (result_ids.size() != found_query_ids.size() * k)
+        throw std::runtime_error("Wrong result size. Maybe a collection is empty.");
+
 
     if (!found_query_ids.empty())
         for (int i = 0; i < vectors.id_array_.size(); ++i){
@@ -522,6 +534,11 @@ DBImpl::LoadVectors(const ResultIds& query_ids, const meta::TableFilesSchema& di
         direct_engine->Reconstruct(query_ids, float_data, found);
 
     }
+    int found_cnt = 0;
+    for(auto f : found)
+        if (f) ++found_cnt;
+    ENGINE_LOG_DEBUG << "Found "<<found_cnt<<" vectors from "<<query_ids.size();
+
 }
 
 Status
@@ -1127,7 +1144,7 @@ DBImpl::BuildTableIndexRecursively(const std::string& table_id, const TableIndex
         ENGINE_LOG_DEBUG << "Non index files detected! Will build index " << times
                          <<" files: "<<table_files.size();
         if (index.engine_type_ != (int)EngineType::FAISS_IDMAP) {
-            status = meta_ptr_->UpdateTableFilesToIndex(table_id);
+            status = meta_ptr_->UpdateTableFilesToIndex(table_id, index.engine_type_);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(std::min(10 * 1000, times * 100)));

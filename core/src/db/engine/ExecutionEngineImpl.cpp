@@ -157,13 +157,19 @@ ExecutionEngineImpl::CreatetVecIndex(EngineType type) {
             index = GetVecIndexFactory(IndexType::FAISS_FLAT);
             break;
         }
+        case EngineType::FAISS_GPU_FLAT_FP16: {
+            index = GetVecIndexFactory(IndexType::FAISS_GPU_FLAT_FP16);
+            break;
+        }
         case EngineType::FAISS_IVFFLAT: {
-#ifdef MILVUS_GPU_VERSION
-            if (gpu_resource_enable)
-                index = GetVecIndexFactory(IndexType::FAISS_IVFFLAT_MIX);
-            else
-#endif
-                index = GetVecIndexFactory(IndexType::FAISS_IVFFLAT_CPU);
+            // if (gpu_resource_enable)
+            //     index = GetVecIndexFactory(IndexType::FAISS_IVFFLAT_MIX);
+            // else
+            index = GetVecIndexFactory(IndexType::FAISS_IVFFLAT_CPU);
+            break;
+        }
+        case EngineType::FAISS_GPU_IVF_FP16: {
+            index = GetVecIndexFactory(IndexType::FAISS_GPU_IVF_FP16);
             break;
         }
         case EngineType::FAISS_IVFSQ8: {
@@ -472,6 +478,8 @@ ExecutionEngineImpl::CopyToGpu(uint64_t device_id, bool hybrid) {
         }
 
         try {
+            ENGINE_LOG_DEBUG << "ExecutionEngineImpl: Loading index but do not add to CPU cache";
+            Load(false);
             index_ = index_->CopyToGpu(device_id);
             ENGINE_LOG_DEBUG << "CPU to GPU" << device_id;
         } catch (std::exception& e) {
@@ -776,18 +784,13 @@ ExecutionEngineImpl::Init() {
     server::Config& config = server::Config::GetInstance();
     std::vector<int64_t> gpu_ids;
     Status s = config.GetGpuResourceConfigBuildIndexResources(gpu_ids);
-    if (!s.ok()) {
+    if (!s.ok() or gpu_ids.empty()) {
         gpu_num_ = knowhere::INVALID_VALUE;
         return s;
     }
-    for (auto id : gpu_ids) {
-        if (gpu_num_ == id) {
-            return Status::OK();
-        }
-    }
+    gpu_num_ = gpu_ids.front();
+    return Status::OK();
 
-    std::string msg = "Invalid gpu_num";
-    return Status(SERVER_INVALID_ARGUMENT, msg);
 #else
     return Status::OK();
 #endif

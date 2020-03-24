@@ -16,6 +16,7 @@
 // under the License.
 #include <fiu-local.h>
 
+#include "scheduler/task/BuildIndexTask.h"
 #include "scheduler/SchedInst.h"
 #include "scheduler/Utils.h"
 #include "scheduler/optimizer/BuildIndexPass.h"
@@ -36,11 +37,24 @@ BuildIndexPass::Init() {
 
 bool
 BuildIndexPass::Run(const TaskPtr& task) {
+
+    //TODO this codepath causes assertions on faiss side while training!!
+    //TEMP
+    return false;
+
+
     if (task->Type() != TaskType::BuildIndexTask)
         return false;
+
+    auto build_task = std::static_pointer_cast<XBuildIndexTask>(task);
+
+    if (build_task->file_->engine_type_ != (int)engine::EngineType::FAISS_GPU_IVF_FP16) {
+        return false;
+    }
+
     fiu_do_on("BuildIndexPass.Run.empty_gpu_ids", build_gpu_ids_.clear());
     if (build_gpu_ids_.empty()) {
-        SERVER_LOG_WARNING << "BuildIndexPass cannot get build index gpu!";
+        SERVER_LOG_ERROR <<"BuildIndexPass cannot get build index gpu!";
         return false;
     }
 

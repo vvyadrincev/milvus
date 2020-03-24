@@ -174,8 +174,10 @@ VecIndexPtr
 VecIndexImpl::CopyToGpu(const int64_t& device_id, const Config& cfg) {
 // TODO(linxj): exception handle
 #ifdef MILVUS_GPU_VERSION
-    auto gpu_index = knowhere::cloner::CopyCpuToGpu(index_, device_id, cfg);
+    size_t size(Size());
+    auto gpu_index = knowhere::cloner::CopyCpuToGpu(index_, device_id, cfg, size);
     auto new_index = std::make_shared<VecIndexImpl>(gpu_index, ConvertToGpuIndexType(type));
+    new_index->set_size(size);
     new_index->dim = dim;
     return new_index;
 #else

@@ -17,6 +17,7 @@
 
 #include "knowhere/index/vector_index/IndexGPUIDMAP.h"
 
+#include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/AutoTune.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/MetaIndexes.h>
@@ -72,10 +73,10 @@ GPUIDMAP::SerializeImpl() {
             delete host_index;
         }
         auto data = std::make_shared<uint8_t>();
-        data.reset(writer.data_);
+        data.reset(writer.data_, [](uint8_t* p){delete [] p;});
 
         BinarySet res_set;
-        res_set.Append("IVF", data, writer.rp);
+        res_set.Append("FLAT", data, writer.rp);
 
         return res_set;
     } catch (std::exception& e) {
@@ -85,7 +86,7 @@ GPUIDMAP::SerializeImpl() {
 
 void
 GPUIDMAP::LoadImpl(const BinarySet& index_binary) {
-    auto binary = index_binary.GetByName("IVF");
+    auto binary = index_binary.GetByName("FLAT");
     MemoryIOReader reader;
     {
         reader.total = binary->size;
@@ -107,9 +108,10 @@ GPUIDMAP::LoadImpl(const BinarySet& index_binary) {
 }
 
 VectorIndexPtr
-GPUIDMAP::CopyGpuToGpu(const int64_t& device_id, const Config& config) {
+GPUIDMAP::CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size) {
     auto cpu_index = CopyGpuToCpu(config);
-    return std::static_pointer_cast<IDMAP>(cpu_index)->CopyCpuToGpu(device_id, config);
+    return  std::static_pointer_cast<IDMAP>(cpu_index)->CopyCpuToGpu(device_id, config);
+
 }
 
 float*
@@ -161,5 +163,135 @@ GPUIDMAP::GenGraph(const float* data, const int64_t& k, Graph& graph, const Conf
         }
     }
 }
+
+IndexModelPtr
+GPUFlatFP16::Train(const DatasetPtr& dataset, const Config& config) {
+    config->CheckValid();
+
+    gpu_id_ = config->gpu_id;
+
+    auto temp_resource = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id_);
+    if (temp_resource == nullptr)
+        KNOWHERE_THROW_MSG("can't get gpu resource");
+
+    ResScope rs(temp_resource, gpu_id_, true);
+
+
+    faiss::Index* index_1 = nullptr;
+    faiss::gpu::GpuIndexFlatConfig gpu_config;
+    gpu_config.useFloat16 = true;
+    gpu_config.device = gpu_id_;
+    if (config->enc_type == "Flat")
+        index_1 = new faiss::gpu::GpuIndexFlatIP(temp_resource->faiss_res.get(), config->d, gpu_config);
+
+    if (not index_1)
+        throw std::runtime_error("Unknown encoding type " + config->enc_type);
+
+
+
+    auto idmap = new faiss::IndexIDMap2(index_1);
+    idmap->own_fields = true;
+    index_.reset(idmap);
+
+    GETTENSOR(dataset)
+
+    index_->train(rows, (float*)p_data);
+
+    return nullptr;
+}
+
+BinarySet
+GPUFlatFP16::SerializeImpl() {
+    try {
+        MemoryIOWriter writer;
+        {
+            auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+            if (not idmap_index)
+                KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+
+            auto device_index = idmap_index->index;
+            std::shared_ptr<faiss::Index> host_index;
+            host_index.reset(faiss::gpu::index_gpu_to_cpu(device_index));
+
+            idmap_index->index = host_index.get();
+            faiss::write_index(idmap_index, &writer);
+            idmap_index->index = device_index;
+        }
+        auto data = std::make_shared<uint8_t>();
+        data.reset(writer.data_);
+
+        BinarySet res_set;
+        res_set.Append("FLAT", data, writer.rp);
+
+        return res_set;
+    } catch (std::exception& e) {
+        KNOWHERE_THROW_MSG(e.what());
+    }
+}
+
+void
+GPUFlatFP16::
+LoadImpl(const BinarySet& index_binary){
+    if (index_)
+        return;
+
+    auto binary = index_binary.GetByName("FLAT");
+    MemoryIOReader reader;
+    {
+        reader.total = binary->size;
+        reader.data_ = binary->data.get();
+
+        std::shared_ptr<faiss::Index> index;
+        index.reset(faiss::read_index(&reader));
+
+        index_ = index;
+        if (gpu_id_ == -1){
+            return;
+
+        }
+        LoadToGPU();
+
+    }
+
+}
+
+uint64_t
+GPUFlatFP16::
+LoadToGPU(){
+    if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id_)) {
+        ResScope rs(res, gpu_id_, false);
+        faiss::gpu::GpuClonerOptions opts;
+        opts.useFloat16 = true;
+
+        auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+        if (not idmap_index)
+            KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+
+        auto host_index = idmap_index->index;
+        auto device_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(),
+                                                         gpu_id_, host_index, &opts);
+        idmap_index->index = device_index;
+        auto size = host_index->ntotal * host_index->d * 2;
+        delete host_index;
+        res_ = res;
+        return size;
+    } else {
+        KNOWHERE_THROW_MSG("Load error, can't get gpu resource");
+    }
+
+}
+
+VectorIndexPtr
+GPUFlatFP16::
+CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size){
+    //dont look at bs function name
+    SetGpuDevice(device_id);
+    size = LoadToGPU();
+
+    return std::make_shared<GPUFlatFP16>(index_, device_id, ResPtr(res_));
+
+}
+
+
 
 }  // namespace knowhere

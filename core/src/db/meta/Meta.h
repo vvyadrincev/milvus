@@ -85,7 +85,7 @@ class Meta {
     UpdateTableIndex(const std::string& table_id, const TableIndex& index) = 0;
 
     virtual Status
-    UpdateTableFilesToIndex(const std::string& table_id) = 0;
+    UpdateTableFilesToIndex(const std::string& table_id, int32_t engine_type=1) = 0;
 
     virtual Status
     DescribeTableIndex(const std::string& table_id, TableIndex& index) = 0;

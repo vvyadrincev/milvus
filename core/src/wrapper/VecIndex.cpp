@@ -115,6 +115,14 @@ GetVecIndexFactory(const IndexType& type, const Config& cfg) {
         }
 
 #ifdef MILVUS_GPU_VERSION
+        case IndexType::FAISS_GPU_FLAT_FP16 : {
+            index = std::make_shared<knowhere::GPUFlatFP16>(gpu_device);
+            break;
+        }
+        case IndexType::FAISS_GPU_IVF_FP16: {
+            index = std::make_shared<knowhere::GenericGPUIVF>(gpu_device);
+            break;
+        }
         case IndexType::FAISS_IVFFLAT_GPU: {
             index = std::make_shared<knowhere::GPUIVF>(gpu_device);
             break;

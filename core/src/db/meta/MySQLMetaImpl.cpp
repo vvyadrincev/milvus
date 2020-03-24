@@ -1002,7 +1002,7 @@ MySQLMetaImpl::UpdateTableFile(TableFileSchema& file_schema) {
 }
 
 Status
-MySQLMetaImpl::UpdateTableFilesToIndex(const std::string& table_id) {
+MySQLMetaImpl::UpdateTableFilesToIndex(const std::string& table_id, int32_t /*engine_type*/) {
     try {
         mysqlpp::ScopedConnection connectionPtr(*mysql_connection_pool_, safe_grab_);
 

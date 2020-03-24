@@ -176,16 +176,11 @@ set(third_party_libs
         )
 
 if (MILVUS_GPU_VERSION)
-    include_directories(${CUDA_INCLUDE_DIRS})
-    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-    set(cuda_lib
-            ${CUDA_TOOLKIT_ROOT_DIR}/lib64/stubs/libnvidia-ml.so
-            cudart
-            cublas
-            )
-    set(third_party_libs ${third_party_libs}
-            ${cuda_lib}
-            )
+    # include_directories(${CUDA_INCLUDE_DIRS})
+    # link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+    set(cuda_lib ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES}
+      ${CUDA_TOOLKIT_ROOT_DIR}/lib/stubs/libnvidia-ml.so)
+    set(third_party_libs ${third_party_libs} ${cuda_lib})
     aux_source_directory(${MILVUS_ENGINE_SRC}/wrapper/gpu wrapper_gpu_files)
     set(engine_files ${engine_files}
             ${wrapper_gpu_files}

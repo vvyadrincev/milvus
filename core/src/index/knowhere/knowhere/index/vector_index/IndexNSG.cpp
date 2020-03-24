@@ -127,7 +127,8 @@ NSG::Train(const DatasetPtr& dataset, const Config& config) {
         preprocess_index->GenGraph(raw_data, build_cfg->knng, knng, config);
     } else {
         // TODO(linxj): use ivf instead?
-        auto gpu_idx = cloner::CopyCpuToGpu(idmap, build_cfg->gpu_id, config);
+        size_t size;
+        auto gpu_idx = cloner::CopyCpuToGpu(idmap, build_cfg->gpu_id, config, size);
         auto gpu_idmap = std::dynamic_pointer_cast<GPUIDMAP>(gpu_idx);
         gpu_idmap->GenGraph(raw_data, build_cfg->knng, knng, config);
     }

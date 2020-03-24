@@ -71,6 +71,7 @@ static const char* CONFIG_STR =
     "\n"
     "engine_config:\n"
     "  use_blas_threshold: 20\n"
+    "  gpu_search_threshold: 0\n"
     "\n"
 #ifdef MILVUS_GPU_VERSION
     "gpu_resource_config:\n"
@@ -161,6 +162,15 @@ void
 DBTest::SetUp() {
     BaseTest::SetUp();
 
+    boost::filesystem::create_directory(CONFIG_PATH);
+    std::string config_path(CONFIG_PATH + std::string(CONFIG_FILE));
+    WriteToFile(config_path, CONFIG_STR);
+
+    milvus::server::Config& config = milvus::server::Config::GetInstance();
+    milvus::Status s = config.LoadConfigFile(config_path);
+    if (!s.ok())
+        std::cerr<<"Failed to load config: "<<s.message()<<std::endl;
+
     auto res_mgr = milvus::scheduler::ResMgrInst::GetInstance();
     res_mgr->Clear();
     res_mgr->Add(milvus::scheduler::ResourceFactory::Create("disk", "DISK", 0, false));
@@ -172,6 +182,9 @@ DBTest::SetUp() {
 #ifdef MILVUS_GPU_VERSION
     res_mgr->Add(milvus::scheduler::ResourceFactory::Create("0", "GPU", 0));
     res_mgr->Connect("cpu", "0", PCIE);
+    auto io_pcie = milvus::scheduler::Connection("io-pcie", 499);
+    res_mgr->Connect("disk", "0", io_pcie);
+
 #endif
     res_mgr->Start();
     milvus::scheduler::SchedInst::GetInstance()->Start();
@@ -181,8 +194,7 @@ DBTest::SetUp() {
     auto options = GetOptions();
     db_ = milvus::engine::DBFactory::Build(options);
 
-    std::string config_path(options.meta_.path_ + CONFIG_FILE);
-    WriteToFile(config_path, CONFIG_STR);
+
 }
 
 void

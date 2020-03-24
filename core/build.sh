@@ -10,7 +10,7 @@ DB_PATH="/tmp/milvus"
 PROFILING="OFF"
 RUN_CPPLINT="OFF"
 CUDA_COMPILER=nvcc
-GPU_VERSION="OFF" #defaults to CPU version
+GPU_VERSION="ON"
 WITH_MKL="OFF"
 FAISS_ROOT="" #FAISS root path
 FAISS_SOURCE="BUNDLED"
@@ -35,6 +35,7 @@ while getopts "p:d:t:f:ulrcghzmei" arg; do
   u)
     echo "Build and run unittest cases"
     BUILD_UNITTEST="ON"
+    FIU_ENABLE="ON"
     ;;
   l)
     RUN_CPPLINT="ON"

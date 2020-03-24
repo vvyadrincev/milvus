@@ -37,7 +37,7 @@ CopyGpuToCpu(const VectorIndexPtr& index, const Config& config) {
 }
 
 VectorIndexPtr
-CopyCpuToGpu(const VectorIndexPtr& index, const int64_t& device_id, const Config& config) {
+CopyCpuToGpu(const VectorIndexPtr& index, const int64_t& device_id, const Config& config, size_t& size) {
 #ifdef CUSTOMIZATION
     if (auto device_index = std::dynamic_pointer_cast<IVFSQHybrid>(index)) {
         return device_index->CopyCpuToGpu(device_id, config);
@@ -45,7 +45,7 @@ CopyCpuToGpu(const VectorIndexPtr& index, const int64_t& device_id, const Config
 #endif
 
     if (auto device_index = std::dynamic_pointer_cast<GPUIndex>(index)) {
-        return device_index->CopyGpuToGpu(device_id, config);
+        return device_index->CopyGpuToGpu(device_id, config, size);
     }
 
     if (auto cpu_index = std::dynamic_pointer_cast<IVFSQ>(index)) {

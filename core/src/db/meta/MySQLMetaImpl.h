@@ -73,7 +73,7 @@ class MySQLMetaImpl : public Meta {
     UpdateTableFile(TableFileSchema& file_schema) override;
 
     Status
-    UpdateTableFilesToIndex(const std::string& table_id) override;
+    UpdateTableFilesToIndex(const std::string& table_id, int32_t engine_type) override;
 
     Status
     UpdateTableFiles(TableFilesSchema& files) override;

@@ -305,7 +305,9 @@ GenericIVF::Train(const DatasetPtr& dataset, const Config& config) {
     auto index_1 = faiss::index_factory(dim, index_type.str().c_str(),
                                         GetMetricType(build_cfg->metric_type));
 
-    index_.reset(new faiss::IndexIDMap2(index_1));
+    auto idmap = new faiss::IndexIDMap2(index_1);
+    idmap->own_fields = true;
+    index_.reset(idmap);
     index_->train(rows, (float*)p_data);
 
     return std::make_shared<IVFIndexModel>();

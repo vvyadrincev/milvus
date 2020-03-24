@@ -83,6 +83,8 @@ load_simple_config() {
         for (auto& gpu_id : gpu_ids) {
             ResMgrInst::GetInstance()->Add(ResourceFactory::Create(std::to_string(gpu_id), "GPU", gpu_id));
             ResMgrInst::GetInstance()->Connect("cpu", std::to_string(gpu_id), pcie);
+            auto io_pcie = Connection("io-pcie", 499);
+            ResMgrInst::GetInstance()->Connect("disk", std::to_string(gpu_id), io_pcie);
         }
 
         for (auto& not_find_id : not_find_build_ids) {

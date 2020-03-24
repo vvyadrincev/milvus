@@ -21,6 +21,8 @@
 #include <faiss/gpu/GpuIndexIVF.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
 #include <faiss/index_io.h>
+#include <faiss/index_factory.h>
+#include <faiss/MetaIndexes.h>
 #include <fiu-local.h>
 
 #include "knowhere/adapter/VectorAdapter.h"
@@ -127,20 +129,26 @@ GPUIVF::LoadImpl(const BinarySet& index_binary) {
 }
 
 void
+GPUIVF::
+set_nprobe(size_t nprobe){
+
+    auto device_index = dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get());
+    fiu_do_on("GPUIVF.search_impl.invald_index", device_index = nullptr);
+
+    if (!device_index)
+        KNOWHERE_THROW_MSG("Not a GpuIndexIVF type.");
+
+    device_index->nprobe = nprobe;
+}
+
+void
 GPUIVF::search_impl(int64_t n, const float* data, int64_t k, float* distances, int64_t* labels, const Config& cfg) {
     std::lock_guard<std::mutex> lk(mutex_);
 
-    auto device_index = std::dynamic_pointer_cast<faiss::gpu::GpuIndexIVF>(index_);
-    fiu_do_on("GPUIVF.search_impl.invald_index", device_index = nullptr);
-    if (device_index) {
-        auto search_cfg = std::dynamic_pointer_cast<IVFCfg>(cfg);
-        device_index->nprobe = search_cfg->nprobe;
-        // assert(device_index->getNumProbes() == search_cfg->nprobe);
-        ResScope rs(res_, gpu_id_);
-        device_index->search(n, (float*)data, k, distances, labels);
-    } else {
-        KNOWHERE_THROW_MSG("Not a GpuIndexIVF type.");
-    }
+    auto search_cfg = std::dynamic_pointer_cast<IVFCfg>(cfg);
+    set_nprobe(search_cfg->nprobe);
+    ResScope rs(res_, gpu_id_);
+    index_->search(n, (float*)data, k, distances, labels);
 }
 
 VectorIndexPtr
@@ -166,7 +174,7 @@ GPUIVF::CopyGpuToCpu(const Config& config) {
 //}
 
 VectorIndexPtr
-GPUIVF::CopyGpuToGpu(const int64_t& device_id, const Config& config) {
+GPUIVF::CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size) {
     auto host_index = CopyGpuToCpu(config);
     return std::static_pointer_cast<IVF>(host_index)->CopyCpuToGpu(device_id, config);
 }
@@ -189,6 +197,185 @@ GPUIndex::SetGpuDevice(const int& gpu_id) {
 const int64_t&
 GPUIndex::GetGpuDevice() {
     return gpu_id_;
+}
+
+
+faiss::gpu::GpuClonerOptions
+CreateFaissOpts(){
+
+    faiss::gpu::GpuClonerOptions opts;
+    //useFloat16 affects only PQ indexes
+    opts.useFloat16 = true;
+    opts.useFloat16CoarseQuantizer = true;
+    opts.indicesOptions = faiss::gpu::INDICES_64_BIT;
+    // opts.indicesOptions = faiss::gpu::INDICES_IVF;
+    return opts;
+}
+
+
+IndexModelPtr
+GenericGPUIVF::
+Train(const DatasetPtr& dataset, const Config& config){
+
+    auto build_cfg = std::dynamic_pointer_cast<IVFCfg>(config);
+    if (build_cfg != nullptr) {
+        build_cfg->CheckValid();  // throw exception
+    }
+    gpu_id_ = build_cfg->gpu_id;
+
+    GETTENSOR(dataset)
+
+    std::stringstream index_type;
+    index_type << "IVF" << build_cfg->nlist << ","
+               << build_cfg->enc_type;
+
+    KNOWHERE_LOG_DEBUG << "Index type: " << index_type.str();
+
+
+    std::shared_ptr<faiss::Index> host_index;
+    host_index.reset(faiss::index_factory(dim, index_type.str().c_str(),
+                                          GetMetricType(build_cfg->metric_type)));
+
+    auto temp_resource = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id_);
+    if (temp_resource != nullptr) {
+        ResScope rs(temp_resource, gpu_id_, true);
+        auto opts = CreateFaissOpts();
+
+        auto device_index = faiss::gpu::index_cpu_to_gpu(temp_resource->faiss_res.get(),
+                                                         gpu_id_, host_index.get(), &opts);
+
+
+        auto idmap = new faiss::IndexIDMap2(device_index);
+        idmap->own_fields = true;
+        index_.reset(idmap);
+
+        index_->train(rows, (float*)p_data);
+        res_ = temp_resource;
+
+
+        return nullptr;
+    } else {
+        KNOWHERE_THROW_MSG("Build IVF can't get gpu resource");
+    }
+
+
+}
+
+BinarySet
+GenericGPUIVF::SerializeImpl() {
+    if (!index_ || !index_->is_trained) {
+        KNOWHERE_THROW_MSG("index not initialize or trained");
+    }
+
+    try {
+        MemoryIOWriter writer;
+        {
+            auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+            if (not idmap_index)
+                KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+
+            auto device_index = idmap_index->index;
+            std::shared_ptr<faiss::Index> host_index;
+            host_index.reset(faiss::gpu::index_gpu_to_cpu(device_index));
+
+            idmap_index->index = host_index.get();
+            faiss::write_index(idmap_index, &writer);
+            idmap_index->index = device_index;
+        }
+        auto data = std::make_shared<uint8_t>();
+        data.reset(writer.data_);
+
+        BinarySet res_set;
+        res_set.Append("IVF", data, writer.rp);
+
+        return res_set;
+    } catch (std::exception& e) {
+        KNOWHERE_THROW_MSG(e.what());
+    }
+}
+
+void
+GenericGPUIVF::
+LoadImpl(const BinarySet& index_binary){
+
+    if (index_)
+        return;
+
+    auto binary = index_binary.GetByName("IVF");
+    MemoryIOReader reader;
+    {
+        reader.total = binary->size;
+        reader.data_ = binary->data.get();
+
+        std::shared_ptr<faiss::Index> index;
+        index.reset(faiss::read_index(&reader));
+
+        index_ = index;
+        if (gpu_id_ == -1){
+            return;
+        }
+
+        LoadToGPU();
+
+
+
+    }
+
+}
+
+void
+GenericGPUIVF::
+set_nprobe(size_t nprobe){
+
+    auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+    if (not idmap_index)
+        KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+
+    auto device_index =dynamic_cast<faiss::gpu::GpuIndexIVF*>(idmap_index->index);
+
+    if (!device_index)
+        KNOWHERE_THROW_MSG("Not a GpuIndexIVF type.");
+
+    device_index->nprobe = nprobe;
+}
+
+uint64_t
+GenericGPUIVF::
+LoadToGPU(){
+
+    if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id_)) {
+        ResScope rs(res, gpu_id_, false);
+        auto opts = CreateFaissOpts();
+
+        auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+        if (not idmap_index)
+            KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+
+        auto host_index = idmap_index->index;
+        auto device_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(),
+                                                         gpu_id_, host_index, &opts);
+
+        idmap_index->index = device_index;
+        // auto size = host_index->ntotal * host_index->d * sizeof(float);
+        delete host_index;
+        res_ = res;
+        return 0;
+    } else {
+        KNOWHERE_THROW_MSG("Load error, can't get gpu resource");
+    }
+
+}
+
+
+VectorIndexPtr
+GenericGPUIVF::
+CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size){
+    //dont look at bs function name
+    SetGpuDevice(device_id);
+    LoadToGPU();
+
+    return std::make_shared<GenericGPUIVF>(index_, device_id, ResPtr(res_));
+
 }
 
 }  // namespace knowhere

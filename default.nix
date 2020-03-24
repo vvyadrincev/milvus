@@ -36,7 +36,7 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ gcc cmake wget ];
   buildInputs = [
-    # cudatoolkit_10
+    cudatoolkit_10
     boost169
     zlib
     mysql57
@@ -58,6 +58,12 @@ stdenv.mkDerivation rec {
     zeromq
     cppzmq
     libcbor
+    #faiss python bindings
+    swig
+    python3
+    python37Packages.numpy
+    python37Packages.setuptools
+    python37Packages.jupyter
   ];
   builder=./core/build.sh;
 }

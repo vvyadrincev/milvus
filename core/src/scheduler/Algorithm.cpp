@@ -86,6 +86,9 @@ ShortestPath(const ResourcePtr& src, const ResourcePtr& dest, const ResourceMgrP
             if (!vis[j] && dis_matrix[temp][j] != MAXINT && dis_matrix[temp][j] + dis[temp] < dis[j]) {
                 dis[j] = dis_matrix[temp][j] + dis[temp];
                 parent[j] = temp;
+            }else{
+                if (!vis[j] && dis[j] != MAXINT)
+                    parent[j] = name_id_map.at(src->name());
             }
         }
     }
