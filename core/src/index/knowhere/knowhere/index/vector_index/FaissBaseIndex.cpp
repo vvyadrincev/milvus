@@ -69,14 +69,15 @@ FaissBaseIndex::LoadImpl(const BinarySet& index_binary) {
 void
 FaissBaseIndex::SealImpl() {
 #ifdef CUSTOMIZATION
-    faiss::Index* index = index_.get();
-    auto idx = dynamic_cast<faiss::IndexIVF*>(index);
-    if (idx != nullptr) {
-        // To be deleted
-        KNOWHERE_LOG_DEBUG << "Test before to_readonly:"
-                           << " IVF READONLY " << std::boolalpha << idx->is_readonly();
-        idx->to_readonly();
-    }
+    // throw std::runtime_error("Unsupported!!");
+    // faiss::Index* index = index_.get();
+    // auto idx = dynamic_cast<faiss::IndexIVF*>(index);
+    // if (idx != nullptr) {
+    //     // To be deleted
+    //     KNOWHERE_LOG_DEBUG << "Test before to_readonly:"
+    //                        << " IVF READONLY " << std::boolalpha << idx->is_readonly();
+    // idx->to_readonly();
+    // }
 #endif
 }
 

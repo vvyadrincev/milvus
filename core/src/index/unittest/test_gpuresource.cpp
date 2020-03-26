@@ -85,7 +85,8 @@ TEST_F(GPURESTEST, copyandsearch) {
 
     auto cpu_idx = knowhere::cloner::CopyGpuToCpu(index_, knowhere::Config());
     cpu_idx->Seal();
-    auto search_idx = knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+    size_t size;
+    auto search_idx = knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
 
     constexpr int64_t search_count = 50;
     constexpr int64_t load_count = 15;
@@ -101,7 +102,7 @@ TEST_F(GPURESTEST, copyandsearch) {
     auto load_func = [&] {
         // TimeRecorder tc("search&load");
         for (int i = 0; i < load_count; ++i) {
-            knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+            knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
             // if (i > load_count -5 || i < 5)
             // tc.RecordSection("Copy to gpu");
         }
@@ -109,7 +110,7 @@ TEST_F(GPURESTEST, copyandsearch) {
     };
 
     knowhere::TimeRecorder tc("Basic");
-    knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+    knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
     tc.RecordSection("Copy to gpu once");
     search_idx->Search(query_dataset, conf);
     tc.RecordSection("Search once");
@@ -138,7 +139,8 @@ TEST_F(GPURESTEST, trainandsearch) {
     new_index->Add(base_dataset, conf);
     auto cpu_idx = knowhere::cloner::CopyGpuToCpu(new_index, knowhere::Config());
     cpu_idx->Seal();
-    auto search_idx = knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+    size_t size;
+    auto search_idx = knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
 
     constexpr int train_count = 5;
     constexpr int search_count = 200;
@@ -179,7 +181,7 @@ TEST_F(GPURESTEST, trainandsearch) {
     }
     {
         // search parallel
-        auto search_idx_2 = knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+        auto search_idx_2 = knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
         std::thread search_1(search_stage, std::ref(search_idx));
         std::thread search_2(search_stage, std::ref(search_idx_2));
         search_1.join();

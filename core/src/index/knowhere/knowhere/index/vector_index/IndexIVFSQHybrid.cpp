@@ -78,12 +78,12 @@ IVFSQHybrid::CopyGpuToCpu(const Config& config) {
     faiss::Index* device_index = index_.get();
     faiss::Index* host_index = faiss::gpu::index_gpu_to_cpu(device_index);
 
-    if (auto* ivf_index = dynamic_cast<faiss::IndexIVF*>(host_index)) {
-        if (ivf_index != nullptr) {
-            ivf_index->to_readonly();
-        }
-        ivf_index->backup_quantizer();
-    }
+    // if (auto* ivf_index = dynamic_cast<faiss::IndexIVF*>(host_index)) {
+    //     if (ivf_index != nullptr) {
+    //         ivf_index->to_readonly();
+    //     }
+    //     ivf_index->backup_quantizer();
+    // }
 
     std::shared_ptr<faiss::Index> new_index;
     new_index.reset(host_index);
@@ -95,10 +95,10 @@ IVFSQHybrid::CopyCpuToGpu(const int64_t& device_id, const Config& config) {
     if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(device_id)) {
         ResScope rs(res, device_id, false);
         faiss::gpu::GpuClonerOptions option;
-        option.allInGpu = true;
+        // option.allInGpu = true;
 
-        auto idx = dynamic_cast<faiss::IndexIVF*>(index_.get());
-        idx->restore_quantizer();
+        // auto idx = dynamic_cast<faiss::IndexIVF*>(index_.get());
+        // idx->restore_quantizer();
         auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), device_id, index_.get(), &option);
         std::shared_ptr<faiss::Index> device_index = std::shared_ptr<faiss::Index>(gpu_index);
         auto new_idx = std::make_shared<IVFSQHybrid>(device_index, device_id, res);
@@ -111,8 +111,8 @@ IVFSQHybrid::CopyCpuToGpu(const int64_t& device_id, const Config& config) {
 void
 IVFSQHybrid::LoadImpl(const BinarySet& index_binary) {
     FaissBaseIndex::LoadImpl(index_binary);  // load on cpu
-    auto* ivf_index = dynamic_cast<faiss::IndexIVF*>(index_.get());
-    ivf_index->backup_quantizer();
+    // auto* ivf_index = dynamic_cast<faiss::IndexIVF*>(index_.get());
+    // ivf_index->backup_quantizer();
     gpu_mode = 0;
 }
 
@@ -150,31 +150,31 @@ IVFSQHybrid::LoadQuantizer(const Config& conf) {
     }
     auto gpu_id = quantizer_conf->gpu_id;
 
-    if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id)) {
-        ResScope rs(res, gpu_id, false);
-        faiss::gpu::GpuClonerOptions option;
-        option.allInGpu = true;
+    // if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id)) {
+    //     ResScope rs(res, gpu_id, false);
+    //     faiss::gpu::GpuClonerOptions option;
+    //     // option.allInGpu = true;
 
-        auto index_composition = new faiss::IndexComposition;
-        index_composition->index = index_.get();
-        index_composition->quantizer = nullptr;
-        index_composition->mode = quantizer_conf->mode;  // only 1
+    //     auto index_composition = new faiss::IndexComposition;
+    //     index_composition->index = index_.get();
+    //     index_composition->quantizer = nullptr;
+    //     index_composition->mode = quantizer_conf->mode;  // only 1
 
-        auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), gpu_id, index_composition, &option);
-        delete gpu_index;
+    //     auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), gpu_id, index_composition, &option);
+    //     delete gpu_index;
 
-        auto q = std::make_shared<FaissIVFQuantizer>();
+    //     auto q = std::make_shared<FaissIVFQuantizer>();
 
-        auto& q_ptr = index_composition->quantizer;
-        q->size = q_ptr->d * q_ptr->getNumVecs() * sizeof(float);
-        q->quantizer = q_ptr;
-        q->gpu_id = gpu_id;
-        res_ = res;
-        gpu_mode = 1;
-        return q;
-    } else {
-        KNOWHERE_THROW_MSG("CopyCpuToGpu Error, can't get gpu: " + std::to_string(gpu_id) + "resource");
-    }
+    //     auto& q_ptr = index_composition->quantizer;
+    //     q->size = q_ptr->d * q_ptr->getNumVecs() * sizeof(float);
+    //     q->quantizer = q_ptr;
+    //     q->gpu_id = gpu_id;
+    //     res_ = res;
+    //     gpu_mode = 1;
+    //     return q;
+    // } else {
+    KNOWHERE_THROW_MSG("CopyCpuToGpu Error, can't get gpu: " + std::to_string(gpu_id) + "resource");
+    // }
 }
 
 void
@@ -225,58 +225,58 @@ IVFSQHybrid::LoadData(const knowhere::QuantizerPtr& q, const Config& conf) {
 
     auto gpu_id = quantizer_conf->gpu_id;
 
-    if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id)) {
-        ResScope rs(res, gpu_id, false);
-        faiss::gpu::GpuClonerOptions option;
-        option.allInGpu = true;
+    // if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id)) {
+    //     ResScope rs(res, gpu_id, false);
+    //     faiss::gpu::GpuClonerOptions option;
+    //     // option.allInGpu = true;
 
-        auto ivf_quantizer = std::dynamic_pointer_cast<FaissIVFQuantizer>(q);
-        if (ivf_quantizer == nullptr)
-            KNOWHERE_THROW_MSG("quantizer type not faissivfquantizer");
+    //     auto ivf_quantizer = std::dynamic_pointer_cast<FaissIVFQuantizer>(q);
+    //     if (ivf_quantizer == nullptr)
+    //         KNOWHERE_THROW_MSG("quantizer type not faissivfquantizer");
 
-        auto index_composition = new faiss::IndexComposition;
-        index_composition->index = index_.get();
-        index_composition->quantizer = ivf_quantizer->quantizer;
-        index_composition->mode = quantizer_conf->mode;  // only 2
+    //     auto index_composition = new faiss::IndexComposition;
+    //     index_composition->index = index_.get();
+    //     index_composition->quantizer = ivf_quantizer->quantizer;
+    //     index_composition->mode = quantizer_conf->mode;  // only 2
 
-        auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), gpu_id, index_composition, &option);
-        std::shared_ptr<faiss::Index> new_idx;
-        new_idx.reset(gpu_index);
-        auto sq_idx = std::make_shared<IVFSQHybrid>(new_idx, gpu_id, res);
-        return sq_idx;
-    } else {
-        KNOWHERE_THROW_MSG("CopyCpuToGpu Error, can't get gpu: " + std::to_string(gpu_id) + "resource");
-    }
+    //     auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), gpu_id, index_composition, &option);
+    //     std::shared_ptr<faiss::Index> new_idx;
+    //     new_idx.reset(gpu_index);
+    //     auto sq_idx = std::make_shared<IVFSQHybrid>(new_idx, gpu_id, res);
+    //     return sq_idx;
+    // } else {
+    KNOWHERE_THROW_MSG("CopyCpuToGpu Error, can't get gpu: " + std::to_string(gpu_id) + "resource");
+    // }
 }
 
 std::pair<VectorIndexPtr, QuantizerPtr>
 IVFSQHybrid::CopyCpuToGpuWithQuantizer(const int64_t& device_id, const Config& config) {
     //    std::lock_guard<std::mutex> lk(g_mutex);
 
-    if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(device_id)) {
-        ResScope rs(res, device_id, false);
-        faiss::gpu::GpuClonerOptions option;
-        option.allInGpu = true;
+    // if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(device_id)) {
+    //     ResScope rs(res, device_id, false);
+    //     faiss::gpu::GpuClonerOptions option;
+    //     option.allInGpu = true;
 
-        faiss::IndexComposition index_composition;
-        index_composition.index = index_.get();
-        index_composition.quantizer = nullptr;
-        index_composition.mode = 0;  // copy all
+    //     faiss::IndexComposition index_composition;
+    //     index_composition.index = index_.get();
+    //     index_composition.quantizer = nullptr;
+    //     index_composition.mode = 0;  // copy all
 
-        auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), device_id, &index_composition, &option);
+    //     auto gpu_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(), device_id, &index_composition, &option);
 
-        std::shared_ptr<faiss::Index> device_index;
-        device_index.reset(gpu_index);
-        auto new_idx = std::make_shared<IVFSQHybrid>(device_index, device_id, res);
+    //     std::shared_ptr<faiss::Index> device_index;
+    //     device_index.reset(gpu_index);
+    //     auto new_idx = std::make_shared<IVFSQHybrid>(device_index, device_id, res);
 
-        auto q = std::make_shared<FaissIVFQuantizer>();
-        q->quantizer = index_composition.quantizer;
-        q->size = index_composition.quantizer->d * index_composition.quantizer->getNumVecs() * sizeof(float);
-        q->gpu_id = device_id;
-        return std::make_pair(new_idx, q);
-    } else {
-        KNOWHERE_THROW_MSG("CopyCpuToGpu Error, can't get gpu: " + std::to_string(gpu_id_) + "resource");
-    }
+    //     auto q = std::make_shared<FaissIVFQuantizer>();
+    //     q->quantizer = index_composition.quantizer;
+    //     q->size = index_composition.quantizer->d * index_composition.quantizer->getNumVecs() * sizeof(float);
+    //     q->gpu_id = device_id;
+    //     return std::make_pair(new_idx, q);
+    // } else {
+    KNOWHERE_THROW_MSG("CopyCpuToGpu Error, can't get gpu: " + std::to_string(gpu_id_) + "resource");
+    // }
 }
 
 void

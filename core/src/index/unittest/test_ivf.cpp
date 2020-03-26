@@ -270,18 +270,20 @@ TEST_P(IVFTest, clone_test) {
         std::vector<std::string> support_idx_vec{"IVF", "GPUIVF", "IVFSQ", "GPUIVFSQ", "IVFPQ", "GPUIVFPQ"};
         auto finder = std::find(support_idx_vec.cbegin(), support_idx_vec.cend(), index_type);
         if (finder != support_idx_vec.cend()) {
+            size_t size;
             EXPECT_NO_THROW({
-                auto clone_index = knowhere::cloner::CopyCpuToGpu(index_, DEVICEID, knowhere::Config());
+                    auto clone_index = knowhere::cloner::CopyCpuToGpu(index_, DEVICEID, knowhere::Config(), size);
                 auto clone_result = clone_index->Search(query_dataset, conf);
                 AssertEqual(result, clone_result);
                 std::cout << "clone C <=> G [" << index_type << "] success" << std::endl;
             });
-            EXPECT_ANY_THROW(knowhere::cloner::CopyCpuToGpu(index_, -1, knowhere::Config()));
+            EXPECT_ANY_THROW(knowhere::cloner::CopyCpuToGpu(index_, -1, knowhere::Config(), size));
         } else {
             EXPECT_THROW(
                 {
+                    size_t size;
                     std::cout << "clone C <=> G [" << index_type << "] failed" << std::endl;
-                    auto clone_index = knowhere::cloner::CopyCpuToGpu(index_, DEVICEID, knowhere::Config());
+                    auto clone_index = knowhere::cloner::CopyCpuToGpu(index_, DEVICEID, knowhere::Config(), size);
                 },
                 knowhere::KnowhereException);
         }
@@ -326,16 +328,17 @@ TEST_P(IVFTest, gpu_seal_test) {
     auto cpu_idx = knowhere::cloner::CopyGpuToCpu(index_, knowhere::Config());
 
     knowhere::TimeRecorder tc("CopyToGpu");
-    knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+    size_t size;
+    knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
     auto without_seal = tc.RecordSection("Without seal");
     cpu_idx->Seal();
     tc.RecordSection("seal cost");
-    knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config());
+    knowhere::cloner::CopyCpuToGpu(cpu_idx, DEVICEID, knowhere::Config(), size);
     auto with_seal = tc.RecordSection("With seal");
     ASSERT_GE(without_seal, with_seal);
 
     // copy to GPU with invalid device id
-    ASSERT_ANY_THROW(knowhere::cloner::CopyCpuToGpu(cpu_idx, -1, knowhere::Config()));
+    ASSERT_ANY_THROW(knowhere::cloner::CopyCpuToGpu(cpu_idx, -1, knowhere::Config(), size));
 }
 
 #endif
@@ -390,7 +393,8 @@ TEST_P(IVFTest, IVFSQHybrid_test) {
     fiu_init(0);
 
     knowhere::cloner::CopyGpuToCpu(index_, conf);
-    ASSERT_ANY_THROW(knowhere::cloner::CopyCpuToGpu(index_, -1, conf));
+    size_t size;
+    ASSERT_ANY_THROW(knowhere::cloner::CopyCpuToGpu(index_, -1, conf, size));
 
     fiu_enable("FaissGpuResourceMgr.GetRes.ret_null", 1, nullptr, 0);
     ASSERT_ANY_THROW(index_->Train(base_dataset, conf));

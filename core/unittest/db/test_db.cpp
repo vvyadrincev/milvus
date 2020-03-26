@@ -781,28 +781,28 @@ TEST_F(DBTest, GPU_INDEXES_TEST){
     LOG(DEBUG) << "################# IVF,SQ8 SEARCH FINISHED ##########################";
 
     //recreate index with another encoding
-    // index.enc_type_ = "PQ4";
-    // stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
-    // ASSERT_TRUE(stat.ok());
+    index.enc_type_ = "PQ16";
+    stat = db_->CreateIndex(TABLE_NAME, index);  // wait until build index finish
+    ASSERT_TRUE(stat.ok());
 
-    // LOG(DEBUG) << "################# IVF,PQ4 INDEX CREATED ##########################";
+    LOG(DEBUG) << "################# IVF,PQ16 INDEX CREATED ##########################";
 
-    // {
-    //     std::vector<std::string> tags;
-    //     milvus::engine::ResultIds result_ids;
-    //     milvus::engine::ResultDistances result_distances;
-    //     stat = db_->Query(dummy_context_, TABLE_NAME,
-    //                       tags, k, 10, vectors, result_ids, result_distances);
-    //     LOG(DEBUG) << "dist="<<result_distances;
-    //     LOG(DEBUG) << "query=" << vectors.id_array_;
-    //     LOG(DEBUG) << "result=" << result_ids;
+    {
+        std::vector<std::string> tags;
+        milvus::engine::ResultIds result_ids;
+        milvus::engine::ResultDistances result_distances;
+        stat = db_->Query(dummy_context_, TABLE_NAME,
+                          tags, k, 10, vectors, result_ids, result_distances);
+        LOG(DEBUG) << "dist="<<result_distances;
+        LOG(DEBUG) << "query=" << vectors.id_array_;
+        LOG(DEBUG) << "result=" << result_ids;
 
-    //     ASSERT_TRUE(stat.ok());
-    //     ASSERT_EQ(etal, result_ids);
+        ASSERT_TRUE(stat.ok());
+        ASSERT_EQ(etal, result_ids);
 
-    // }
+    }
 
-    // LOG(DEBUG) << "################# IVF,PQ4 SEARCH FINISHED ##########################";
+    LOG(DEBUG) << "################# IVF,PQ16 SEARCH FINISHED ##########################";
 
 }
 
