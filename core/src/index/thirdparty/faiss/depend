@@ -359,14 +359,14 @@ GpuDistance.o: gpu/GpuDistance.cu faiss/gpu/GpuDistance.h faiss/Index.h \
  faiss/gpu/utils/MemorySpace.h faiss/gpu/utils/DeviceTensor-inl.cuh \
  faiss/gpu/utils/Float16.cuh faiss/gpu/impl/GeneralDistance.cuh \
  faiss/impl/AuxIndexStructures.h faiss/gpu/impl/DistanceUtils.cuh \
- faiss/gpu/utils/DeviceDefs.cuh faiss/gpu/utils/Select.cuh \
- faiss/gpu/utils/Comparators.cuh faiss/gpu/utils/MergeNetworkBlock.cuh \
+ faiss/gpu/utils/ConversionOperators.cuh faiss/gpu/utils/DeviceDefs.cuh \
+ faiss/gpu/utils/Select.cuh faiss/gpu/utils/Comparators.cuh \
+ faiss/gpu/utils/MergeNetworkBlock.cuh \
  faiss/gpu/utils/MergeNetworkUtils.cuh faiss/gpu/utils/PtxUtils.cuh \
  faiss/gpu/utils/StaticUtils.h faiss/gpu/utils/WarpShuffles.cuh \
  faiss/gpu/utils/MergeNetworkWarp.cuh faiss/gpu/utils/Reductions.cuh \
  faiss/gpu/utils/ReductionOperators.cuh faiss/gpu/utils/Limits.cuh \
  faiss/gpu/utils/Pair.cuh faiss/gpu/utils/MathOperators.cuh \
- faiss/gpu/utils/ConversionOperators.cuh \
  faiss/gpu/utils/BlockSelectKernel.cuh faiss/gpu/utils/CopyUtils.cuh \
  faiss/gpu/utils/HostTensor.cuh faiss/gpu/utils/HostTensor-inl.cuh
 GpuIndexIVFPQ.o: gpu/GpuIndexIVFPQ.cu faiss/gpu/GpuIndexIVFPQ.h \
@@ -468,30 +468,6 @@ GpuIndex.o: gpu/GpuIndex.cu faiss/gpu/GpuIndex.h faiss/Index.h \
  faiss/gpu/GpuFaissAssert.h faiss/gpu/utils/DeviceUtils.h \
  faiss/gpu/utils/DeviceTensor-inl.cuh faiss/gpu/utils/HostTensor.cuh \
  faiss/gpu/utils/HostTensor-inl.cuh faiss/gpu/utils/StaticUtils.h
-PQCodeDistances.o: gpu/impl/PQCodeDistances.cu \
- faiss/gpu/impl/PQCodeDistances.cuh faiss/gpu/utils/Tensor.cuh \
- faiss/gpu/utils/Tensor-inl.cuh faiss/gpu/GpuFaissAssert.h \
- faiss/impl/FaissAssert.h faiss/impl/FaissException.h \
- faiss/gpu/utils/DeviceUtils.h faiss/gpu/utils/NoTypeTensor.cuh \
- faiss/gpu/impl/PQCodeDistances-inl.cuh faiss/gpu/impl/BroadcastSum.cuh \
- faiss/gpu/impl/Distance.cuh faiss/gpu/utils/DeviceTensor.cuh \
- faiss/gpu/utils/DeviceMemory.h faiss/gpu/utils/MemorySpace.h \
- faiss/gpu/utils/DeviceTensor-inl.cuh faiss/gpu/utils/Float16.cuh \
- faiss/gpu/GpuResources.h faiss/gpu/impl/GeneralDistance.cuh \
- faiss/MetricType.h faiss/impl/AuxIndexStructures.h faiss/Index.h \
- faiss/gpu/impl/DistanceUtils.cuh faiss/gpu/utils/DeviceDefs.cuh \
- faiss/gpu/utils/Select.cuh faiss/gpu/utils/Comparators.cuh \
- faiss/gpu/utils/MergeNetworkBlock.cuh \
- faiss/gpu/utils/MergeNetworkUtils.cuh faiss/gpu/utils/PtxUtils.cuh \
- faiss/gpu/utils/StaticUtils.h faiss/gpu/utils/WarpShuffles.cuh \
- faiss/gpu/utils/MergeNetworkWarp.cuh faiss/gpu/utils/Reductions.cuh \
- faiss/gpu/utils/ReductionOperators.cuh faiss/gpu/utils/Limits.cuh \
- faiss/gpu/utils/Pair.cuh faiss/gpu/utils/MathOperators.cuh \
- faiss/gpu/utils/ConversionOperators.cuh \
- faiss/gpu/utils/BlockSelectKernel.cuh faiss/gpu/impl/L2Norm.cuh \
- faiss/gpu/utils/MatrixMult.cuh faiss/gpu/utils/HostTensor.cuh \
- faiss/gpu/utils/HostTensor-inl.cuh faiss/gpu/utils/MatrixMult-inl.cuh \
- faiss/gpu/utils/Transpose.cuh
 IVFBase.o: gpu/impl/IVFBase.cu faiss/gpu/impl/IVFBase.cuh \
  faiss/MetricType.h faiss/gpu/GpuIndicesOptions.h \
  faiss/gpu/utils/DeviceVector.cuh faiss/impl/FaissAssert.h \
@@ -520,18 +496,17 @@ FlatIndex.o: gpu/impl/FlatIndex.cu faiss/gpu/impl/FlatIndex.cuh \
  faiss/gpu/utils/Float16.cuh faiss/gpu/GpuResources.h \
  faiss/gpu/impl/GeneralDistance.cuh faiss/impl/AuxIndexStructures.h \
  faiss/Index.h faiss/gpu/impl/DistanceUtils.cuh \
- faiss/gpu/utils/DeviceDefs.cuh faiss/gpu/utils/Select.cuh \
- faiss/gpu/utils/Comparators.cuh faiss/gpu/utils/MergeNetworkBlock.cuh \
+ faiss/gpu/utils/ConversionOperators.cuh faiss/gpu/utils/DeviceDefs.cuh \
+ faiss/gpu/utils/Select.cuh faiss/gpu/utils/Comparators.cuh \
+ faiss/gpu/utils/MergeNetworkBlock.cuh \
  faiss/gpu/utils/MergeNetworkUtils.cuh faiss/gpu/utils/PtxUtils.cuh \
  faiss/gpu/utils/WarpShuffles.cuh faiss/gpu/utils/MergeNetworkWarp.cuh \
  faiss/gpu/utils/Reductions.cuh faiss/gpu/utils/ReductionOperators.cuh \
  faiss/gpu/utils/Limits.cuh faiss/gpu/utils/Pair.cuh \
- faiss/gpu/utils/MathOperators.cuh \
- faiss/gpu/utils/ConversionOperators.cuh \
- faiss/gpu/utils/BlockSelectKernel.cuh faiss/gpu/impl/L2Norm.cuh \
- faiss/gpu/impl/VectorResidual.cuh faiss/gpu/utils/CopyUtils.cuh \
- faiss/gpu/utils/HostTensor.cuh faiss/gpu/utils/HostTensor-inl.cuh \
- faiss/gpu/utils/Transpose.cuh
+ faiss/gpu/utils/MathOperators.cuh faiss/gpu/utils/BlockSelectKernel.cuh \
+ faiss/gpu/impl/L2Norm.cuh faiss/gpu/impl/VectorResidual.cuh \
+ faiss/gpu/utils/CopyUtils.cuh faiss/gpu/utils/HostTensor.cuh \
+ faiss/gpu/utils/HostTensor-inl.cuh faiss/gpu/utils/Transpose.cuh
 PQScanMultiPassPrecomputed.o: gpu/impl/PQScanMultiPassPrecomputed.cu \
  faiss/gpu/impl/PQScanMultiPassPrecomputed.cuh \
  faiss/gpu/GpuIndicesOptions.h faiss/gpu/utils/Tensor.cuh \
@@ -557,57 +532,29 @@ IVFPQ.o: gpu/impl/IVFPQ.cu faiss/gpu/impl/IVFPQ.cuh faiss/MetricType.h \
  faiss/gpu/impl/BroadcastSum.cuh faiss/gpu/impl/Distance.cuh \
  faiss/gpu/impl/GeneralDistance.cuh faiss/impl/AuxIndexStructures.h \
  faiss/Index.h faiss/gpu/impl/DistanceUtils.cuh \
- faiss/gpu/utils/DeviceDefs.cuh faiss/gpu/utils/Select.cuh \
- faiss/gpu/utils/Comparators.cuh faiss/gpu/utils/MergeNetworkBlock.cuh \
+ faiss/gpu/utils/ConversionOperators.cuh faiss/gpu/utils/DeviceDefs.cuh \
+ faiss/gpu/utils/Select.cuh faiss/gpu/utils/Comparators.cuh \
+ faiss/gpu/utils/MergeNetworkBlock.cuh \
  faiss/gpu/utils/MergeNetworkUtils.cuh faiss/gpu/utils/PtxUtils.cuh \
  faiss/gpu/utils/WarpShuffles.cuh faiss/gpu/utils/MergeNetworkWarp.cuh \
  faiss/gpu/utils/Reductions.cuh faiss/gpu/utils/ReductionOperators.cuh \
  faiss/gpu/utils/Limits.cuh faiss/gpu/utils/Pair.cuh \
- faiss/gpu/utils/MathOperators.cuh \
- faiss/gpu/utils/ConversionOperators.cuh \
- faiss/gpu/utils/BlockSelectKernel.cuh faiss/gpu/impl/FlatIndex.cuh \
- faiss/gpu/impl/IVFAppend.cuh faiss/gpu/impl/GpuScalarQuantizer.cuh \
- faiss/IndexScalarQuantizer.h faiss/IndexIVF.h faiss/InvertedLists.h \
- faiss/DirectMap.h faiss/Clustering.h faiss/utils/Heap.h \
- faiss/impl/ScalarQuantizer.h faiss/gpu/utils/HostTensor.cuh \
- faiss/gpu/utils/HostTensor-inl.cuh faiss/gpu/impl/L2Norm.cuh \
- faiss/gpu/impl/PQCodeDistances.cuh faiss/gpu/utils/NoTypeTensor.cuh \
- faiss/gpu/impl/PQCodeDistances-inl.cuh faiss/gpu/utils/MatrixMult.cuh \
- faiss/gpu/utils/MatrixMult-inl.cuh faiss/gpu/utils/Transpose.cuh \
+ faiss/gpu/utils/MathOperators.cuh faiss/gpu/utils/BlockSelectKernel.cuh \
+ faiss/gpu/impl/FlatIndex.cuh faiss/gpu/impl/IVFAppend.cuh \
+ faiss/gpu/impl/GpuScalarQuantizer.cuh faiss/IndexScalarQuantizer.h \
+ faiss/IndexIVF.h faiss/InvertedLists.h faiss/DirectMap.h \
+ faiss/Clustering.h faiss/utils/Heap.h faiss/impl/ScalarQuantizer.h \
+ faiss/gpu/utils/HostTensor.cuh faiss/gpu/utils/HostTensor-inl.cuh \
+ faiss/gpu/impl/L2Norm.cuh faiss/gpu/impl/PQCodeDistances.cuh \
+ faiss/gpu/utils/NoTypeTensor.cuh faiss/gpu/impl/PQCodeDistances-inl.cuh \
+ faiss/gpu/utils/MatrixMult.cuh faiss/gpu/utils/MatrixMult-inl.cuh \
+ faiss/gpu/utils/Transpose.cuh \
  faiss/gpu/impl/PQScanMultiPassNoPrecomputed.cuh \
  faiss/gpu/impl/PQScanMultiPassNoPrecomputed-inl.cuh \
  faiss/gpu/impl/PQCodeLoad.cuh faiss/gpu/impl/IVFUtils.cuh \
  faiss/gpu/utils/LoadStoreOperators.cuh \
  faiss/gpu/impl/PQScanMultiPassPrecomputed.cuh \
  faiss/gpu/impl/RemapIndices.h faiss/gpu/impl/VectorResidual.cuh
-PQScanMultiPassNoPrecomputed.o: gpu/impl/PQScanMultiPassNoPrecomputed.cu \
- faiss/gpu/impl/PQScanMultiPassNoPrecomputed.cuh faiss/MetricType.h \
- faiss/gpu/GpuIndicesOptions.h faiss/gpu/utils/Tensor.cuh \
- faiss/gpu/utils/Tensor-inl.cuh faiss/gpu/GpuFaissAssert.h \
- faiss/impl/FaissAssert.h faiss/impl/FaissException.h \
- faiss/gpu/utils/DeviceUtils.h \
- faiss/gpu/impl/PQScanMultiPassNoPrecomputed-inl.cuh \
- faiss/gpu/GpuResources.h faiss/gpu/utils/DeviceMemory.h \
- faiss/gpu/impl/PQCodeDistances.cuh faiss/gpu/utils/NoTypeTensor.cuh \
- faiss/gpu/impl/PQCodeDistances-inl.cuh faiss/gpu/impl/BroadcastSum.cuh \
- faiss/gpu/impl/Distance.cuh faiss/gpu/utils/DeviceTensor.cuh \
- faiss/gpu/utils/MemorySpace.h faiss/gpu/utils/DeviceTensor-inl.cuh \
- faiss/gpu/utils/Float16.cuh faiss/gpu/impl/GeneralDistance.cuh \
- faiss/impl/AuxIndexStructures.h faiss/Index.h \
- faiss/gpu/impl/DistanceUtils.cuh faiss/gpu/utils/DeviceDefs.cuh \
- faiss/gpu/utils/Select.cuh faiss/gpu/utils/Comparators.cuh \
- faiss/gpu/utils/MergeNetworkBlock.cuh \
- faiss/gpu/utils/MergeNetworkUtils.cuh faiss/gpu/utils/PtxUtils.cuh \
- faiss/gpu/utils/StaticUtils.h faiss/gpu/utils/WarpShuffles.cuh \
- faiss/gpu/utils/MergeNetworkWarp.cuh faiss/gpu/utils/Reductions.cuh \
- faiss/gpu/utils/ReductionOperators.cuh faiss/gpu/utils/Limits.cuh \
- faiss/gpu/utils/Pair.cuh faiss/gpu/utils/MathOperators.cuh \
- faiss/gpu/utils/ConversionOperators.cuh \
- faiss/gpu/utils/BlockSelectKernel.cuh faiss/gpu/impl/L2Norm.cuh \
- faiss/gpu/utils/MatrixMult.cuh faiss/gpu/utils/HostTensor.cuh \
- faiss/gpu/utils/HostTensor-inl.cuh faiss/gpu/utils/MatrixMult-inl.cuh \
- faiss/gpu/utils/Transpose.cuh faiss/gpu/impl/PQCodeLoad.cuh \
- faiss/gpu/impl/IVFUtils.cuh faiss/gpu/utils/LoadStoreOperators.cuh
 IVFAppend.o: gpu/impl/IVFAppend.cu faiss/gpu/impl/IVFAppend.cuh \
  faiss/gpu/impl/GpuScalarQuantizer.cuh faiss/IndexScalarQuantizer.h \
  faiss/IndexIVF.h faiss/Index.h faiss/MetricType.h faiss/InvertedLists.h \
@@ -778,15 +725,14 @@ Distance.o: gpu/impl/Distance.cu faiss/gpu/impl/Distance.cuh \
  faiss/gpu/utils/Float16.cuh faiss/gpu/GpuResources.h \
  faiss/gpu/impl/GeneralDistance.cuh faiss/MetricType.h \
  faiss/impl/AuxIndexStructures.h faiss/Index.h \
- faiss/gpu/impl/DistanceUtils.cuh faiss/gpu/utils/DeviceDefs.cuh \
- faiss/gpu/utils/Select.cuh faiss/gpu/utils/Comparators.cuh \
- faiss/gpu/utils/MergeNetworkBlock.cuh \
+ faiss/gpu/impl/DistanceUtils.cuh faiss/gpu/utils/ConversionOperators.cuh \
+ faiss/gpu/utils/DeviceDefs.cuh faiss/gpu/utils/Select.cuh \
+ faiss/gpu/utils/Comparators.cuh faiss/gpu/utils/MergeNetworkBlock.cuh \
  faiss/gpu/utils/MergeNetworkUtils.cuh faiss/gpu/utils/PtxUtils.cuh \
  faiss/gpu/utils/StaticUtils.h faiss/gpu/utils/WarpShuffles.cuh \
  faiss/gpu/utils/MergeNetworkWarp.cuh faiss/gpu/utils/Reductions.cuh \
  faiss/gpu/utils/ReductionOperators.cuh faiss/gpu/utils/Limits.cuh \
  faiss/gpu/utils/Pair.cuh faiss/gpu/utils/MathOperators.cuh \
- faiss/gpu/utils/ConversionOperators.cuh \
  faiss/gpu/utils/BlockSelectKernel.cuh faiss/gpu/impl/BroadcastSum.cuh \
  faiss/gpu/impl/L2Norm.cuh faiss/gpu/impl/L2Select.cuh \
  faiss/gpu/utils/MatrixMult.cuh faiss/gpu/utils/HostTensor.cuh \
