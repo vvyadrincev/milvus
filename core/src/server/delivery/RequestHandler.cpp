@@ -31,6 +31,7 @@
 #include "server/delivery/request/DropTableRequest.h"
 #include "server/delivery/request/HasTableRequest.h"
 #include "server/delivery/request/InsertRequest.h"
+#include "server/delivery/request/GetVectorsRequest.h"
 #include "server/delivery/request/PreloadTableRequest.h"
 #include "server/delivery/request/SearchRequest.h"
 #include "server/delivery/request/ShowPartitionsRequest.h"
@@ -106,6 +107,16 @@ RequestHandler::Search(const std::shared_ptr<Context>& context, const std::strin
 
     return request_ptr->status();
 }
+Status
+RequestHandler::GetVectors(const std::shared_ptr<Context>& context, const std::string& table_name,
+                           engine::VectorsData& vectors){
+
+    BaseRequestPtr request_ptr = GetVectorsRequest::Create(context, table_name, vectors);
+    RequestScheduler::ExecRequest(request_ptr);
+
+    return request_ptr->status();
+}
+
 
 
 Status

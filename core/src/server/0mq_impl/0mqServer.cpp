@@ -215,6 +215,9 @@ handle_req(const zmq::message_t& msg){
         return handle_create_index(context, unpacker);
     else if (method == "search_by_id")
         return handle_search_by_id(context, unpacker);
+    else if (method == "get_vectors")
+        return handle_get_vectors(context, unpacker);
+
     else
         throw std::runtime_error("Unknown method!");
 
@@ -320,7 +323,7 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
     auto params = json::from_cbor(unpacker.buffer<char>(),
                                   unpacker.buffer<char>() + unpacker.size());
-    std::cout<<"PARAMS: "<<params<<std::endl;
+    // std::cout<<"PARAMS: "<<params<<std::endl;
 
     auto table_name = params.at("table_name").get<std::string>();
     vectors.table_id = params.value("query_ids_table_name", "");
@@ -356,6 +359,40 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
     encode_ids(result.id_list_, packer);
 
     packer.pack<typed_array_encoder_t<engine::ResultDistances>>(result.distance_list_);
+    return packer.move_buffer();
+}
+
+std::vector<uint8_t>
+ZeroMQServer::
+handle_get_vectors(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+
+    engine::VectorsData vectors;
+    vectors.id_array_ = decode_ids(unpacker);
+    vectors.vector_count_ = vectors.id_array_.size();
+
+    auto params = json::from_cbor(unpacker.buffer<char>(),
+                                  unpacker.buffer<char>() + unpacker.size());
+
+    auto table_name = params.at("table_name").get<std::string>();
+
+
+    auto status = request_handler_.GetVectors(pctx, table_name, vectors);
+    if (not status.ok())
+        return json::to_cbor(create_json_err_obj(status, "Failed to get vectors"));
+
+
+    uint64_t est_size = 500 +
+        vectors.float_data_.size() * sizeof(float) + 50 +
+        vectors.id_array_.size() * sizeof(engine::IDNumber) + 50;
+
+    json resp = {{"result", {{"found_cnt", vectors.vector_count_}}}};
+    auto out_buf = json::to_cbor(resp);
+
+    Packer packer(std::move(out_buf), out_buf.size(), est_size);
+
+    encode_ids(vectors.id_array_, packer);
+
+    packer.pack<typed_array_encoder_t<std::vector<float>>>(vectors.float_data_);
     return packer.move_buffer();
 }
 

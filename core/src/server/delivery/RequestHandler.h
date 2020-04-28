@@ -60,6 +60,10 @@ class RequestHandler {
            TopKQueryResult& result);
 
     Status
+    GetVectors(const std::shared_ptr<Context>& context, const std::string& table_name,
+               engine::VectorsData& vectors);
+
+    Status
     DescribeTable(const std::shared_ptr<Context>& context, const std::string& table_name, TableSchema& table_schema);
 
     Status

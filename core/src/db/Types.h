@@ -52,6 +52,7 @@ struct VectorsData {
     //Table_id is used by search_id
     //If it is empty the default table_id is used(passed in the query)
     std::string table_id;
+    bool return_vectors;
 };
 
 using File2ErrArray = std::map<std::string, std::vector<std::string>>;

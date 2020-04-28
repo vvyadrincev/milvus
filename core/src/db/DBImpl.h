@@ -104,6 +104,10 @@ class DBImpl : public DB {
     DropIndex(const std::string& table_id) override;
 
     Status
+    GetVectors(const std::shared_ptr<server::Context>& context, const std::string& table_id,
+               VectorsData& vectors) override;
+
+    Status
     Query(const std::shared_ptr<server::Context>& context, const std::string& table_id,
           const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
           ResultIds& result_ids, ResultDistances& result_distances) override;
@@ -127,9 +131,9 @@ class DBImpl : public DB {
                const meta::TableFilesSchema& files, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
                ResultIds& result_ids, ResultDistances& result_distances);
 
-    void LoadVectors(const ResultIds& query_ids,
-                     const meta::TableFilesSchema& direct_files,
-                     std::vector<bool>& found, std::vector<float>& float_data);
+    uint64_t LoadVectors(const ResultIds& query_ids,
+                         const meta::TableFilesSchema& direct_files,
+                         std::vector<bool>& found, std::vector<float>& float_data);
 
     void
     BackgroundTimerTask();

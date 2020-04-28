@@ -87,6 +87,10 @@ class DB {
     InsertVectors(const std::string& table_id, const std::string& partition_tag, VectorsData& vectors) = 0;
 
     virtual Status
+    GetVectors(const std::shared_ptr<server::Context>& context, const std::string& table_id,
+               VectorsData& vectors) = 0;
+
+    virtual Status
     Query(const std::shared_ptr<server::Context>& context, const std::string& table_id,
           const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
           ResultIds& result_ids, ResultDistances& result_distances) = 0;

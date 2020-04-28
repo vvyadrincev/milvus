@@ -409,6 +409,32 @@ DBImpl::DropIndex(const std::string& table_id) {
 }
 
 Status
+DBImpl::GetVectors(const std::shared_ptr<server::Context>& context, const std::string& table_id,
+                   VectorsData& vectors){
+
+    Status status;
+    meta::TableFilesSchema direct_files;
+
+    meta::DatesT dates;
+    std::vector<size_t> ids;
+
+    status = GetDirectFiles(table_id, ids, dates, direct_files);
+    if (!status.ok()) {
+        return status;
+    }
+
+
+    std::vector<bool> found_query_ids;
+    vectors.vector_count_ = LoadVectors(vectors.id_array_, direct_files, found_query_ids,
+                                        const_cast<std::vector<float>&>(vectors.float_data_));
+
+    for (int i = 0; i < vectors.id_array_.size(); ++i)
+        if (not found_query_ids[i])
+            vectors.id_array_[i] = 0;
+    return Status::OK();
+}
+
+Status
 DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string& table_id,
               const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
               ResultIds& result_ids, ResultDistances& result_distances) {
@@ -514,12 +540,12 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
 }
 
 
-void
+uint64_t
 DBImpl::LoadVectors(const ResultIds& query_ids, const meta::TableFilesSchema& direct_files,
                     std::vector<bool>& found, std::vector<float>& float_data){
 
     if (query_ids.empty() or direct_files.empty())
-        return;
+        return 0;
 
     float_data.resize(direct_files.front().dimension_ * query_ids.size(), 0.0);
 
@@ -539,6 +565,7 @@ DBImpl::LoadVectors(const ResultIds& query_ids, const meta::TableFilesSchema& di
         if (f) ++found_cnt;
     ENGINE_LOG_DEBUG << "Found "<<found_cnt<<" vectors from "<<query_ids.size();
 
+    return found_cnt;
 }
 
 Status
