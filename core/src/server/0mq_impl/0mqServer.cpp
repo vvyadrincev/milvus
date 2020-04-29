@@ -215,6 +215,8 @@ handle_req(const zmq::message_t& msg){
         return handle_create_index(context, unpacker);
     else if (method == "search_by_id")
         return handle_search_by_id(context, unpacker);
+    else if (method == "drop_table")
+        return handle_drop_table(context, unpacker);
     else if (method == "get_vectors")
         return handle_get_vectors(context, unpacker);
 
@@ -310,6 +312,21 @@ handle_create_index(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
         return json::to_cbor(create_json_err_obj(status, "Failed to create index"));
 
     json resp = {{"result", {{"created_index", true}}}};
+    return json::to_cbor(resp);
+}
+
+std::vector<uint8_t>
+ZeroMQServer::
+handle_drop_table(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+    auto params = json::from_cbor(unpacker.buffer<char>(),
+                                  unpacker.buffer<char>() + unpacker.size());
+    auto table_name = params.at("table_name").get<std::string>();
+
+    auto status = request_handler_.DropTable(pctx, table_name);
+    if (not status.ok())
+        return json::to_cbor(create_json_err_obj(status, "Failed to drop table"));
+
+    json resp = {{"result", {{"drop_table", true}}}};
     return json::to_cbor(resp);
 }
 
