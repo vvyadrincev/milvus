@@ -49,8 +49,7 @@ FaissFlatPass::Run(const TaskPtr& task) {
 
     auto search_task = std::static_pointer_cast<XSearchTask>(task);
     auto et = search_task->file_->engine_type_;
-    if (et != (int)engine::EngineType::FAISS_IDMAP &&
-        et != (int)engine::EngineType::FAISS_GPU_FLAT_FP16) {
+    if (et != (int)engine::EngineType::FAISS_GPU_FLAT_FP16) {
         return false;
     }
 
