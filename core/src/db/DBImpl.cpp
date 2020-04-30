@@ -500,8 +500,10 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
 
     ENGINE_LOG_DEBUG << "CPU cache info";
     cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info before query
-    ENGINE_LOG_DEBUG << "GPU cache info";
-    cache::GpuCacheMgr::GetInstance(0)->PrintInfo();  // print cache info before query
+    // ENGINE_LOG_DEBUG << "GPU cache info 0";
+    // cache::GpuCacheMgr::GetInstance(0)->PrintInfo();  // print cache info before query
+    // ENGINE_LOG_DEBUG << "GPU cache info 1";
+    // cache::GpuCacheMgr::GetInstance(1)->PrintInfo();  // print cache info before query
 
     std::vector<bool> found_query_ids;
     LoadVectors(vectors.id_array_, direct_files, found_query_ids,
@@ -511,8 +513,10 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
     status = QueryAsync(query_ctx, table_id, files_array, k, nprobe, vectors, result_ids, result_distances);
     ENGINE_LOG_DEBUG << "CPU cache info";
     cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info after query
-    ENGINE_LOG_DEBUG << "GPU cache info";
-    cache::GpuCacheMgr::GetInstance(0)->PrintInfo();  // print cache info before query
+    // ENGINE_LOG_DEBUG << "GPU cache info 0";
+    // cache::GpuCacheMgr::GetInstance(0)->PrintInfo();  // print cache info before query
+    // ENGINE_LOG_DEBUG << "GPU cache info 1";
+    // cache::GpuCacheMgr::GetInstance(1)->PrintInfo();  // print cache info before query
 
     query_ctx->GetTraceContext()->GetSpan()->Finish();
 

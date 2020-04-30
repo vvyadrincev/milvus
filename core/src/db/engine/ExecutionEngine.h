@@ -83,7 +83,7 @@ class ExecutionEngine {
     Serialize() = 0;
 
     virtual Status
-    Load(bool to_cache = true) = 0;
+    Load(bool to_cache = true, bool force = false) = 0;
 
     virtual Status
     CopyToGpu(uint64_t device_id, bool hybrid) = 0;

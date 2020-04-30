@@ -370,7 +370,7 @@ LoadToGPU(){
 VectorIndexPtr
 GenericGPUIVF::
 CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size){
-    //dont look at bs function name
+    //^dont look at bs function name ^
     SetGpuDevice(device_id);
     LoadToGPU();
 

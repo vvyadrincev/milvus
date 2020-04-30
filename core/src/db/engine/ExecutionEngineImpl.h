@@ -60,7 +60,7 @@ class ExecutionEngineImpl : public ExecutionEngine {
     Serialize() override;
 
     Status
-    Load(bool to_cache) override;
+    Load(bool to_cache, bool force = false) override;
 
     Status
     CopyToGpu(uint64_t device_id, bool hybrid = false) override;

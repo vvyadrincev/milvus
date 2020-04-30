@@ -383,8 +383,11 @@ ExecutionEngineImpl::Serialize() {
 }
 
 Status
-ExecutionEngineImpl::Load(bool to_cache) {
-    index_ = std::static_pointer_cast<VecIndex>(cache::CpuCacheMgr::GetInstance()->GetIndex(location_));
+ExecutionEngineImpl::Load(bool to_cache, bool force) {
+    if (force)
+        index_ = nullptr;
+    else
+        index_ = std::static_pointer_cast<VecIndex>(cache::CpuCacheMgr::GetInstance()->GetIndex(location_));
     bool already_in_cache = (index_ != nullptr);
     if (!already_in_cache) {
         try {
@@ -479,7 +482,7 @@ ExecutionEngineImpl::CopyToGpu(uint64_t device_id, bool hybrid) {
 
         try {
             ENGINE_LOG_DEBUG << "ExecutionEngineImpl: Loading index but do not add to CPU cache";
-            Load(false);
+            Load(false, true);
             index_ = index_->CopyToGpu(device_id);
             ENGINE_LOG_DEBUG << "CPU to GPU" << device_id;
         } catch (std::exception& e) {
