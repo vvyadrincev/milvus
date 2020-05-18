@@ -202,7 +202,7 @@ XBuildIndexTask::Execute() {
         table_file.row_count_ = index->Count();
 
         auto origin_file = *file_;
-        origin_file.file_type_ = engine::meta::TableFileSchema::BACKUP;
+        origin_file.file_type_ = engine::meta::TableFileSchema::TO_DELETE;
 
         engine::meta::TableFilesSchema update_files = {table_file, origin_file};
 

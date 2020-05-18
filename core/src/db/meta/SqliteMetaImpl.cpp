@@ -1488,7 +1488,7 @@ SqliteMetaImpl::CleanUpFilesWithTTL(uint64_t seconds, CleanUpFilter* filter) {
 
         std::vector<int> file_types = {
             (int)TableFileSchema::TO_DELETE,
-            (int)TableFileSchema::BACKUP,
+            // (int)TableFileSchema::BACKUP,
         };
 
         // multi-threads call sqlite update may get exception('bad logic', etc), so we add a lock here
@@ -1526,6 +1526,11 @@ SqliteMetaImpl::CleanUpFilesWithTTL(uint64_t seconds, CleanUpFilter* filter) {
                 // erase from cache, must do this before file deleted,
                 // because GetTableFilePath won't able to generate file path after the file is deleted
                 utils::GetTableFilePath(options_, table_file);
+                if (table_file.location_.empty())
+                    ENGINE_LOG_ERROR << "PROBLEMS WITH DELETE: " <<" table id "<<table_file.table_id_
+                                     <<" file id "<<table_file.file_id_
+                                     <<" file type "<<table_file.file_type_<<std::endl
+                                     <<" size "<<table_file.file_size_;
                 server::CommonUtil::EraseFromCache(table_file.location_);
 
                 if (table_file.file_type_ == (int)TableFileSchema::TO_DELETE) {
