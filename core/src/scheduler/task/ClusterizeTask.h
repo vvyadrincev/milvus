@@ -16,47 +16,41 @@
 // under the License.
 #pragma once
 
-#include <condition_variable>
-#include <deque>
-#include <list>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <string>
-#include <thread>
-#include <unordered_map>
-#include <vector>
+#include "Task.h"
+#include "scheduler/Definition.h"
+#include "scheduler/job/ClusterizeJob.h"
 
-#include "job/DeleteJob.h"
-#include "job/Job.h"
-#include "job/SearchJob.h"
-#include "job/ClusterizeJob.h"
-#include "task/BuildIndexTask.h"
-#include "task/DeleteTask.h"
-#include "task/SearchTask.h"
-#include "task/ClusterizeTask.h"
-#include "task/Task.h"
+#include "knowhere/index/vector_index/helpers/FaissGpuResourceMgr.h"
 
 namespace milvus {
 namespace scheduler {
 
-class TaskCreator {
+class XClusterizeTask : public Task {
  public:
-    static std::vector<TaskPtr>
-    Create(const JobPtr& job);
+    explicit XClusterizeTask(engine::meta::TableSchema dest_table, TaskLabelPtr label);
 
- public:
-    static std::vector<TaskPtr>
-    Create(const SearchJobPtr& job);
+    void
+    Load(LoadType type, uint8_t device_id) override;
 
-    static std::vector<TaskPtr>
-    Create(const DeleteJobPtr& job);
+    void
+    Execute() override;
 
-    static std::vector<TaskPtr>
-    Create(const BuildIndexJobPtr& job);
+    ClusterizeJobPtr
+    Job()const{
+        auto job = job_.lock();
+        return std::static_pointer_cast<scheduler::ClusterizeJob>(job);
+    }
 
-    static std::vector<TaskPtr>
-    Create(const ClusterizeJobPtr& job);
+private:
+    void
+    LoadFromDirectFiles(scheduler::ClusterizeJobPtr job,
+                        std::vector<float>& float_data,
+                        uint64_t& vec_cnt);
+
+    engine::meta::TableSchema dest_table_;
+    std::unique_ptr<faiss::Index> index_;
+    knowhere::ResWPtr res_;
+
 
 };
 

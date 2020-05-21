@@ -16,49 +16,28 @@
 // under the License.
 #pragma once
 
-#include <condition_variable>
-#include <deque>
-#include <list>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <string>
-#include <thread>
-#include <unordered_map>
-#include <vector>
-
-#include "job/DeleteJob.h"
-#include "job/Job.h"
-#include "job/SearchJob.h"
-#include "job/ClusterizeJob.h"
-#include "task/BuildIndexTask.h"
-#include "task/DeleteTask.h"
-#include "task/SearchTask.h"
-#include "task/ClusterizeTask.h"
-#include "task/Task.h"
+#include "Pass.h"
 
 namespace milvus {
 namespace scheduler {
 
-class TaskCreator {
+class FaissClusterizePass : public Pass {
  public:
-    static std::vector<TaskPtr>
-    Create(const JobPtr& job);
+    FaissClusterizePass() = default;
 
  public:
-    static std::vector<TaskPtr>
-    Create(const SearchJobPtr& job);
+    void
+    Init() override;
 
-    static std::vector<TaskPtr>
-    Create(const DeleteJobPtr& job);
+    bool
+    Run(const TaskPtr& task) override;
 
-    static std::vector<TaskPtr>
-    Create(const BuildIndexJobPtr& job);
-
-    static std::vector<TaskPtr>
-    Create(const ClusterizeJobPtr& job);
-
+ private:
+    int64_t count_ = 0;
+    std::vector<int64_t> gpus_;
 };
+
+using FaissClusterizePassPtr = std::shared_ptr<FaissClusterizePass>;
 
 }  // namespace scheduler
 }  // namespace milvus

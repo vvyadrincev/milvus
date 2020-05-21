@@ -1,6 +1,8 @@
 #include "0mqServer.h"
 #include "cbor_utils.hpp"
 
+#include "db/Options.h"
+
 #include <faiss/utils/distances.h>
 #include <boost/format.hpp>
 
@@ -219,6 +221,8 @@ handle_req(const zmq::message_t& msg){
         return handle_drop_table(context, unpacker);
     else if (method == "get_vectors")
         return handle_get_vectors(context, unpacker);
+    else if (method == "clusterize")
+        return handle_clusterize(context, unpacker);
 
     else
         throw std::runtime_error("Unknown method!");
@@ -343,7 +347,7 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
     // std::cout<<"PARAMS: "<<params<<std::endl;
 
     auto table_name = params.at("table_name").get<std::string>();
-    vectors.table_id = params.value("query_ids_table_name", "");
+    vectors.query_table_ids = params.value("query_id_table_names", vectors.query_table_ids);
 
     std::vector<Range> ranges;
     std::vector<std::string> partitions;
@@ -411,6 +415,74 @@ handle_get_vectors(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
     packer.pack<typed_array_encoder_t<std::vector<float>>>(vectors.float_data_);
     return packer.move_buffer();
+}
+
+std::vector<std::uint8_t>
+ZeroMQServer::
+handle_clusterize(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+
+    engine::VectorsData vectors;
+    auto float_decoder = unpacker.unpack<typed_array_decoder_t<float>>();
+    vectors.float_data_ = float_decoder.copy();
+
+
+    vectors.id_array_ = decode_ids(unpacker);
+    vectors.vector_count_ = vectors.id_array_.size();
+
+    auto params = json::from_cbor(unpacker.buffer<char>(),
+                                  unpacker.buffer<char>() + unpacker.size());
+
+    vectors.query_table_ids = params.value("query_id_table_names", vectors.query_table_ids);
+    engine::ClusterizeOptions opts;
+    opts.table_id = params.at("table_name").get<std::string>();
+    opts.use_gpu = params.value("use_gpu", opts.use_gpu);
+    opts.niter = params.value("niter", opts.niter);
+    opts.nredo = params.value("nredo", opts.nredo);
+    opts.verbose = params.value("verbose", opts.verbose);
+    opts.number_of_clusters = params.value("number_of_clusters", opts.number_of_clusters);
+
+    if (params.value("drop_table_if_exist", true)){
+
+        bool has_table = false;
+        auto status = request_handler_.HasTable(pctx, opts.table_id, has_table);
+
+        if (not status.ok())
+            return json::to_cbor(create_json_err_obj(status, "Failed to check table"));
+
+        if (has_table){
+            status = request_handler_.DropTable(pctx, opts.table_id);
+            if (not status.ok())
+                return json::to_cbor(create_json_err_obj(status, "Failed to drop table"));
+        }
+    }
+
+    auto status = create_table(pctx, opts.table_id, params);
+    if (not status.ok())
+        return json::to_cbor(create_json_err_obj(status, "Failed to create table"));
+
+    bool norm = params.value("normalize_L2", false);
+
+    if (norm)
+        faiss::fvec_renorm_L2(vectors.float_data_.size() / vectors.vector_count_,
+                              vectors.vector_count_,
+                              vectors.float_data_.data());
+
+    status = request_handler_.Clusterize(pctx, opts, vectors);
+    if (not status.ok())
+        return json::to_cbor(create_json_err_obj(status, "Failed to insert vectors"));
+
+    bool index_vectors = params.value("create_index", false);
+    if (index_vectors){
+        status = create_index(pctx, opts.table_id, params);
+        if (not status.ok())
+            return json::to_cbor(create_json_err_obj(status, "Failed to create index"));
+    }
+
+
+
+    json resp = {{"result", {{"normalize_L2", norm},
+                             {"created_index", index_vectors}}}};
+    return json::to_cbor(resp);
 }
 
 

@@ -75,6 +75,16 @@ Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
     }
     return Status::OK();
 }
+Status VecIndexImpl::
+GetIds(std::vector<int64_t>& ids){
+    try{
+        index_->GetIds(ids);
+    }catch(const std::exception& e){
+        WRAPPER_LOG_ERROR << e.what();
+        return Status(KNOWHERE_ERROR, e.what());
+    }
+    return Status::OK();
+}
 
 Status
 VecIndexImpl::Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg) {

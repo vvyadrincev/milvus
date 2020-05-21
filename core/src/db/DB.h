@@ -119,6 +119,13 @@ class DB {
 
     virtual Status
     DropAll() = 0;
+
+    //misc
+
+    virtual Status
+    Clusterize(const std::shared_ptr<server::Context>& context,
+               const ClusterizeOptions& opts, const VectorsData& vectors) = 0;
+
 };  // DB
 
 using DBPtr = std::shared_ptr<DB>;

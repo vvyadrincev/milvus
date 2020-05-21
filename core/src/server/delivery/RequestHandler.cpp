@@ -36,6 +36,7 @@
 #include "server/delivery/request/SearchRequest.h"
 #include "server/delivery/request/ShowPartitionsRequest.h"
 #include "server/delivery/request/ShowTablesRequest.h"
+#include "server/delivery/request/ClusterizeRequest.h"
 
 namespace milvus {
 namespace server {
@@ -117,6 +118,15 @@ RequestHandler::GetVectors(const std::shared_ptr<Context>& context, const std::s
     return request_ptr->status();
 }
 
+Status
+RequestHandler::Clusterize(const std::shared_ptr<Context>& context,
+                           const engine::ClusterizeOptions& opts,
+                           const engine::VectorsData& vectors){
+    BaseRequestPtr request_ptr = ClusterizeRequest::Create(context, opts, vectors);
+    RequestScheduler::ExecRequest(request_ptr);
+
+    return request_ptr->status();
+}
 
 
 Status

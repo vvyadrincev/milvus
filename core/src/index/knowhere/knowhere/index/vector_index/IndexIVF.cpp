@@ -72,7 +72,11 @@ IVF::Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                  std::vector<bool>& found){
     common_reconstruct(index_.get(), ids, xb, found);
 }
-
+void
+IVF::GetIds(std::vector<int64_t>& ids){
+    auto idmap_index = dynamic_cast<faiss::IndexIDMap*>(index_.get());
+    ids = idmap_index->id_map;
+}
 
 void
 IVF::Add(const DatasetPtr& dataset, const Config& config) {

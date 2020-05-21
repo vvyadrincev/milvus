@@ -67,6 +67,8 @@ protected:
     std::vector<uint8_t> handle_drop_table(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
     std::vector<uint8_t> handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
     std::vector<uint8_t> handle_get_vectors(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
+    std::vector<uint8_t> handle_clusterize(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
+
 
     Status create_table(const std::shared_ptr<Context>& pctx,
                         const std::string& table_name, const json& params);

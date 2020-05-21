@@ -50,6 +50,8 @@ class IVF : public VectorIndex, public FaissBaseIndex {
     void Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                      std::vector<bool>& found)override;
 
+    void GetIds(std::vector<int64_t>& ids) override;
+
     void
     Add(const DatasetPtr& dataset, const Config& config) override;
 

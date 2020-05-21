@@ -78,5 +78,18 @@ struct DBOptions {
     bool insert_cache_immediately_ = false;
 };  // Options
 
+struct ClusterizeOptions {
+    bool use_gpu = false;
+    int niter = 30;
+    int nredo = 1;
+    bool verbose = false;
+
+    int number_of_clusters = 10'000;
+
+    std::string table_id;
+
+
+};
+
 }  // namespace engine
 }  // namespace milvus

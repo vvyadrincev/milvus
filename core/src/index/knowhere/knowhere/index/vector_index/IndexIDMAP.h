@@ -58,6 +58,8 @@ class IDMAP : public VectorIndex, public FaissBaseIndex {
         common_reconstruct(index_.get(), ids, xb, found);
     }
 
+    void GetIds(std::vector<int64_t>& ids) override;
+
     void
     Add(const DatasetPtr& dataset, const Config& config) override;
 

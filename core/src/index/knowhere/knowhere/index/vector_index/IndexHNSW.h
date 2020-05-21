@@ -56,6 +56,11 @@ class IndexHNSW : public VectorIndex {
     }
 
     void
+    GetIds(std::vector<int64_t>& ids) override{
+        throw std::logic_error("unsupported!");
+    }
+
+    void
     Add(const DatasetPtr& dataset, const Config& config) override;
 
     void

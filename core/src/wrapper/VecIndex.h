@@ -71,6 +71,8 @@ class VecIndex : public cache::DataObj {
     virtual Status
     Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                 std::vector<bool>& found) = 0;
+    virtual Status
+    GetIds(std::vector<int64_t>& ids) = 0;
 
     virtual Status
     BuildAll(const int64_t& nb, const uint8_t* xb, const int64_t* ids, const Config& cfg, const int64_t& nt = 0,

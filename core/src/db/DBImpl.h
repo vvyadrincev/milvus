@@ -125,6 +125,10 @@ class DBImpl : public DB {
     Status
     Size(uint64_t& result) override;
 
+    Status
+    Clusterize(const std::shared_ptr<server::Context>& context,
+               const ClusterizeOptions& opts, const VectorsData& vectors)override;
+
  private:
     Status
     QueryAsync(const std::shared_ptr<server::Context>& context, const std::string& table_id,
@@ -192,6 +196,8 @@ class DBImpl : public DB {
 
     Status
     GetTableRowCountRecursively(const std::string& table_id, uint64_t& row_count);
+
+
 
  private:
     const DBOptions options_;

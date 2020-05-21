@@ -39,6 +39,7 @@ enum class JobType {
     SEARCH,
     DELETE,
     BUILD,
+    CLUSTERIZE
 };
 
 using JobId = std::uint64_t;

@@ -29,6 +29,7 @@
 #include "optimizer/FaissIVFSQ8HPass.h"
 #include "optimizer/FaissIVFSQ8Pass.h"
 #include "optimizer/FallbackPass.h"
+#include "optimizer/ClusterizePass.h"
 #include "optimizer/Optimizer.h"
 #include "server/Config.h"
 
@@ -136,6 +137,7 @@ class OptimizerInst {
                     pass_list.push_back(std::make_shared<FaissIVFPQPass>());
                 }
 #endif
+                pass_list.push_back(std::make_shared<FaissClusterizePass>());
                 pass_list.push_back(std::make_shared<FallbackPass>());
                 instance = std::make_shared<Optimizer>(pass_list);
             }

@@ -322,6 +322,12 @@ ExecutionEngineImpl::Reconstruct(std::vector<int64_t> ids, std::vector<float>& x
 }
 
 Status
+ExecutionEngineImpl::GetIds(std::vector<int64_t>& ids){
+    return index_->GetIds(ids);
+}
+
+
+Status
 ExecutionEngineImpl::AddWithIds(int64_t n, const float* xdata, const int64_t* xids) {
     auto status = index_->Add(n, xdata, xids);
     return status;

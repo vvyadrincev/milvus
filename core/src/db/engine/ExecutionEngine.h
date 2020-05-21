@@ -60,6 +60,8 @@ class ExecutionEngine {
     virtual Status
     Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                 std::vector<bool>& found) = 0;
+    virtual Status
+    GetIds(std::vector<int64_t>& ids) = 0;
 
     virtual Status
     AddWithIds(int64_t n, const float* xdata, const int64_t* xids) = 0;

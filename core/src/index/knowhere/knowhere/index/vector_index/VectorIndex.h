@@ -47,6 +47,9 @@ class VectorIndex : public Index {
                 std::vector<bool>& found) = 0;
 
     virtual void
+    GetIds(std::vector<int64_t>& ids) = 0;
+
+    virtual void
     Add(const DatasetPtr& dataset, const Config& config) = 0;
 
     virtual void

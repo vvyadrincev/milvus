@@ -117,6 +117,13 @@ IDMAP::AddWithoutId(const DatasetPtr& dataset, const Config& config) {
     index_->add_with_ids(rows, (float*)p_data, new_ids.data());
 }
 
+void
+IDMAP::
+GetIds(std::vector<int64_t>& ids){
+    auto idmap_index = dynamic_cast<faiss::IndexIDMap*>(index_.get());
+    ids = idmap_index->id_map;
+}
+
 int64_t
 IDMAP::Count() {
     return index_->ntotal;

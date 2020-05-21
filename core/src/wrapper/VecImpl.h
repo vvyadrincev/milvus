@@ -54,6 +54,9 @@ class VecIndexImpl : public VecIndex {
     Status Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                        std::vector<bool>& found) override;
     Status
+    GetIds(std::vector<int64_t>& ids) override;
+
+    Status
     Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg) override;
 
     knowhere::BinarySet

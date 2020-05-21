@@ -104,7 +104,8 @@ JobMgr::build_task(const JobPtr& job) {
 
 void
 JobMgr::calculate_path(const ResourceMgrPtr& res_mgr, const TaskPtr& task) {
-    if (task->type_ != TaskType::SearchTask && task->type_ != TaskType::BuildIndexTask) {
+    if (task->type_ != TaskType::SearchTask && task->type_ != TaskType::BuildIndexTask &&
+        task->type_ != TaskType::ClusterizeTask) {
         return;
     }
 

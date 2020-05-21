@@ -49,9 +49,9 @@ struct VectorsData {
     std::vector<float> float_data_;
     std::vector<uint8_t> binary_data_;
     IDNumbers id_array_;
-    //Table_id is used by search_id
+    //Table_ids are used by search_id
     //If it is empty the default table_id is used(passed in the query)
-    std::string table_id;
+    std::vector<std::string> query_table_ids;
     bool return_vectors;
 };
 

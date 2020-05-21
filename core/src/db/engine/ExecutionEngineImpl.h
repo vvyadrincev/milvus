@@ -37,6 +37,8 @@ class ExecutionEngineImpl : public ExecutionEngine {
     Status
     Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                 std::vector<bool>& found)override;
+    Status
+    GetIds(std::vector<int64_t>& ids)override;
 
     Status
     AddWithIds(int64_t n, const float* xdata, const int64_t* xids) override;

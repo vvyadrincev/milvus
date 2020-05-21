@@ -18,6 +18,7 @@
 #pragma once
 
 #include "server/delivery/request/BaseRequest.h"
+#include "db/Options.h"
 #include "utils/Status.h"
 
 #include <memory>
@@ -62,6 +63,13 @@ class RequestHandler {
     Status
     GetVectors(const std::shared_ptr<Context>& context, const std::string& table_name,
                engine::VectorsData& vectors);
+
+    Status
+    Clusterize(const std::shared_ptr<Context>& context,
+               const engine::ClusterizeOptions& opts,
+               const engine::VectorsData& vectors);
+
+
 
     Status
     DescribeTable(const std::shared_ptr<Context>& context, const std::string& table_name, TableSchema& table_schema);

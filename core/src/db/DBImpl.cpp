@@ -41,6 +41,7 @@
 #include "scheduler/job/BuildIndexJob.h"
 #include "scheduler/job/DeleteJob.h"
 #include "scheduler/job/SearchJob.h"
+#include "scheduler/job/ClusterizeJob.h"
 #include "utils/Log.h"
 #include "utils/StringHelpFunctions.h"
 #include "utils/TimeRecorder.h"
@@ -409,6 +410,51 @@ DBImpl::DropIndex(const std::string& table_id) {
 }
 
 Status
+DBImpl::Clusterize(const std::shared_ptr<server::Context> &context,
+                   const ClusterizeOptions &opts,
+                   const VectorsData &vectors){
+    Status status;
+    meta::TableFilesSchema direct_files;
+    ENGINE_LOG_DEBUG <<"Input vectors count: "<<vectors.vector_count_
+                     <<" Input float data size: " << vectors.float_data_.size()
+                     <<" Input ids size: "<<vectors.id_array_.size()
+                     <<" Query tables size: "<<vectors.query_table_ids.size();
+
+
+    if (vectors.float_data_.empty()){
+
+        std::vector<size_t> ids;
+        meta::DatesT dates;
+        for(const auto& table_id : vectors.query_table_ids){
+            meta::TableFilesSchema temp;
+            status = GetDirectFiles(table_id, ids, dates, temp);
+            if (!status.ok()) {
+                return status;
+            }
+            direct_files.insert(direct_files.end(), temp.begin(), temp.end());
+        }
+
+        ENGINE_LOG_DEBUG << "Engine clustering begin, direct files count: " << direct_files.size();
+        auto status = ongoing_files_checker_.MarkOngoingFiles(direct_files);
+    }
+
+    auto job = std::make_shared<scheduler::ClusterizeJob>(context, opts, meta_ptr_,
+                                                          direct_files, vectors);
+    scheduler::JobMgrInst::GetInstance()->Put(job);
+    job->WaitResult();
+
+    if(not direct_files.empty())
+        status = ongoing_files_checker_.UnmarkOngoingFiles(direct_files);
+
+    if (!job->GetStatus().ok()) {
+        return job->GetStatus();
+    }
+
+    return Status::OK();
+
+}
+
+Status
 DBImpl::GetVectors(const std::shared_ptr<server::Context>& context, const std::string& table_id,
                    VectorsData& vectors){
 
@@ -475,10 +521,20 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
         }
 
         if (!vectors.id_array_.empty()){
-            status = GetDirectFiles(vectors.table_id.empty() ? table_id : vectors.table_id,
-                                    ids, dates, direct_files);
-            if (!status.ok()) {
-                return status;
+
+            if (vectors.query_table_ids.empty())
+                status = GetDirectFiles(table_id, ids, dates, direct_files);
+            else{
+                for(const auto& table_id : vectors.query_table_ids){
+                    meta::TableFilesSchema temp;
+                    status = GetDirectFiles(table_id, ids, dates, temp);
+                    if (!status.ok()) {
+                        return status;
+                    }
+
+                    direct_files.insert(direct_files.end(), temp.begin(), temp.end());
+                }
+
             }
         }
 
@@ -1257,6 +1313,8 @@ DBImpl::GetTableRowCountRecursively(const std::string& table_id, uint64_t& row_c
 
     return Status::OK();
 }
+
+
 
 }  // namespace engine
 }  // namespace milvus

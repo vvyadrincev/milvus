@@ -35,6 +35,9 @@ TaskCreator::Create(const JobPtr& job) {
         case JobType::BUILD: {
             return Create(std::static_pointer_cast<BuildIndexJob>(job));
         }
+        case JobType::CLUSTERIZE: {
+            return Create(std::static_pointer_cast<ClusterizeJob>(job));
+        }
         default: {
             // TODO(wxyu): error
             return std::vector<TaskPtr>();
@@ -73,6 +76,16 @@ TaskCreator::Create(const BuildIndexJobPtr& job) {
         task->job_ = job;
         tasks.emplace_back(task);
     }
+    return tasks;
+}
+
+std::vector<TaskPtr>
+TaskCreator::Create(const ClusterizeJobPtr& job){
+    std::vector<TaskPtr> tasks;
+    auto task = std::make_shared<XClusterizeTask>(job->DestTable(), nullptr);
+    task->job_ = job;
+    tasks.push_back(task);
+
     return tasks;
 }
 

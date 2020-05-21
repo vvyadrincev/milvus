@@ -40,6 +40,7 @@ enum class TaskType {
     SearchTask,
     DeleteTask,
     BuildIndexTask,
+    ClusterizeTask,
     TestTask,
 };
 
