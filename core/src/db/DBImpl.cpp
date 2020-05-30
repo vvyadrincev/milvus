@@ -455,8 +455,14 @@ DBImpl::Clusterize(const std::shared_ptr<server::Context> &context,
 }
 
 Status
-DBImpl::GetVectors(const std::shared_ptr<server::Context>& context, const std::string& table_id,
+DBImpl::GetVectors(const std::shared_ptr<server::Context>& context,
+                   const std::vector<std::string>& table_names,
                    VectorsData& vectors){
+
+    auto tables = std::accumulate(std::begin(table_names), std::end(table_names), std::string{},
+                                  [](auto& t, const auto& s) {return t += "," + s;});
+    ENGINE_LOG_DEBUG << "GetVectors tables: " << tables
+                     << " vecors #: " << vectors.id_array_.size();
 
     Status status;
     meta::TableFilesSchema direct_files;
@@ -464,9 +470,14 @@ DBImpl::GetVectors(const std::shared_ptr<server::Context>& context, const std::s
     meta::DatesT dates;
     std::vector<size_t> ids;
 
-    status = GetDirectFiles(table_id, ids, dates, direct_files);
-    if (!status.ok()) {
-        return status;
+    for(const auto& table_id : table_names){
+        meta::TableFilesSchema temp;
+        status = GetDirectFiles(table_id, ids, dates, temp);
+        if (!status.ok()) {
+            return status;
+        }
+
+        direct_files.insert(direct_files.end(), temp.begin(), temp.end());
     }
 
 
@@ -481,7 +492,8 @@ DBImpl::GetVectors(const std::shared_ptr<server::Context>& context, const std::s
 }
 
 Status
-DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string& table_id,
+DBImpl::Query(const std::shared_ptr<server::Context>& context,
+              const std::vector<std::string>& table_names,
               const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
               ResultIds& result_ids, ResultDistances& result_distances) {
     if (!initialized_.load(std::memory_order_acquire)) {
@@ -490,12 +502,13 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
 
     // meta::DatesT dates = {utils::GetDate()};
     meta::DatesT dates;
-    Status result = Query(context, table_id, partition_tags, k, nprobe, vectors, dates, result_ids, result_distances);
+    Status result = Query(context, table_names, partition_tags, k, nprobe, vectors, dates, result_ids, result_distances);
     return result;
 }
 
 Status
-DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string& table_id,
+DBImpl::Query(const std::shared_ptr<server::Context>& context,
+              const std::vector<std::string>& table_names,
               const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe,
               const VectorsData& vectors, const meta::DatesT& dates,
               ResultIds& result_ids, ResultDistances& result_distances) {
@@ -505,7 +518,7 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
         return SHUTDOWN_ERROR;
     }
 
-    ENGINE_LOG_DEBUG << "Query by dates for table: " << table_id << " date range count: " << dates.size();
+    // ENGINE_LOG_DEBUG << "Query by dates for table: " << table_id << " date range count: " << dates.size();
 
     Status status;
     std::vector<size_t> ids;
@@ -515,39 +528,44 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
     if (partition_tags.empty()) {
         // no partition tag specified, means search in whole table
         // get all table files from parent table
-        status = GetFilesToSearch(table_id, ids, dates, files_array);
-        if (!status.ok()) {
-            return status;
+        for(const auto& table_id : table_names){
+            meta::TableFilesSchema temp;
+            status = GetFilesToSearch(table_id, ids, dates, temp);
+            if (!status.ok()) {
+                return status;
+            }
+
+            files_array.insert(files_array.end(), temp.begin(), temp.end());
         }
 
         if (!vectors.id_array_.empty()){
 
-            if (vectors.query_table_ids.empty())
-                status = GetDirectFiles(table_id, ids, dates, direct_files);
-            else{
-                for(const auto& table_id : vectors.query_table_ids){
-                    meta::TableFilesSchema temp;
-                    status = GetDirectFiles(table_id, ids, dates, temp);
-                    if (!status.ok()) {
-                        return status;
-                    }
-
-                    direct_files.insert(direct_files.end(), temp.begin(), temp.end());
+            auto* tables = &table_names;
+            if (not vectors.query_table_ids.empty())
+                tables = &vectors.query_table_ids;
+            for(const auto& table_id : vectors.query_table_ids){
+                meta::TableFilesSchema temp;
+                status = GetDirectFiles(table_id, ids, dates, temp);
+                if (!status.ok()) {
+                    return status;
                 }
 
+                direct_files.insert(direct_files.end(), temp.begin(), temp.end());
             }
+
         }
 
         //TODO for direct??
         std::vector<meta::TableSchema> partition_array;
-        status = meta_ptr_->ShowPartitions(table_id, partition_array);
+        //TEMP
+        status = meta_ptr_->ShowPartitions(table_names.front(), partition_array);
         for (auto& schema : partition_array) {
             status = GetFilesToSearch(schema.table_id_, ids, dates, files_array);
         }
     } else {
         // get files from specified partitions
         std::set<std::string> partition_name_array;
-        GetPartitionsByTags(table_id, partition_tags, partition_name_array);
+        GetPartitionsByTags(table_names.front(), partition_tags, partition_name_array);
 
         for (auto& partition_name : partition_name_array) {
             status = GetFilesToSearch(partition_name, ids, dates, files_array);
@@ -566,7 +584,8 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
                 const_cast<std::vector<float>&>(vectors.float_data_));
 
 
-    status = QueryAsync(query_ctx, table_id, files_array, k, nprobe, vectors, result_ids, result_distances);
+    status = QueryAsync(query_ctx, table_names.front(), files_array, k, nprobe,
+                        vectors, result_ids, result_distances);
     ENGINE_LOG_DEBUG << "CPU cache info";
     cache::CpuCacheMgr::GetInstance()->PrintInfo();  // print cache info after query
     // ENGINE_LOG_DEBUG << "GPU cache info 0";
@@ -576,6 +595,7 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context, const std::string
 
     query_ctx->GetTraceContext()->GetSpan()->Finish();
 
+    //TODO assign table_id to each result
     if (not status.ok())
         return status;
 

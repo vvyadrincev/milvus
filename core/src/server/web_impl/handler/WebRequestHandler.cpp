@@ -718,7 +718,7 @@ WebRequestHandler::Search(const OString& table_name, const SearchRequestDto::Obj
     std::vector<Range> range_list;
     TopKQueryResult result;
     auto context_ptr = GenContextPtr("Web Handler");
-    status = request_handler_.Search(context_ptr, table_name->std_str(), vectors, range_list, topk_t, nprobe_t,
+    status = request_handler_.Search(context_ptr, {table_name->std_str()}, vectors, range_list, topk_t, nprobe_t,
                                      tag_list, file_id_list, result);
     if (!status.ok()) {
         ASSIGN_RETURN_STATUS_DTO(status)

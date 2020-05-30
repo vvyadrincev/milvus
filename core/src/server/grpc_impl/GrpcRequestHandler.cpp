@@ -291,7 +291,7 @@ GrpcRequestHandler::Search(::grpc::ServerContext* context, const ::milvus::grpc:
     std::vector<std::string> file_ids;
     TopKQueryResult result;
     fiu_do_on("GrpcRequestHandler.Search.not_empty_file_ids", file_ids.emplace_back("test_file_id"));
-    Status status = request_handler_.Search(context_map_[context], request->table_name(), vectors, ranges,
+    Status status = request_handler_.Search(context_map_[context], {request->table_name()}, vectors, ranges,
                                             request->topk(), request->nprobe(), partitions, file_ids, result);
 
     // step 4: construct and return result
@@ -342,7 +342,7 @@ GrpcRequestHandler::SearchInFiles(::grpc::ServerContext* context, const ::milvus
     // step 4: search vectors
     TopKQueryResult result;
     Status status =
-        request_handler_.Search(context_map_[context], search_request->table_name(), vectors, ranges,
+        request_handler_.Search(context_map_[context], {search_request->table_name()}, vectors, ranges,
                                 search_request->topk(), search_request->nprobe(), partitions, file_ids, result);
 
     // step 5: construct and return result

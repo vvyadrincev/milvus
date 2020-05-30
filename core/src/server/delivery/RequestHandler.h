@@ -55,13 +55,13 @@ class RequestHandler {
     ShowTables(const std::shared_ptr<Context>& context, std::vector<std::string>& tables);
 
     Status
-    Search(const std::shared_ptr<Context>& context, const std::string& table_name, const engine::VectorsData& vectors,
+    Search(const std::shared_ptr<Context>& context, const std::vector<std::string>& table_names, const engine::VectorsData& vectors,
            const std::vector<Range>& range_list, int64_t topk, int64_t nprobe,
            const std::vector<std::string>& partition_list, const std::vector<std::string>& file_id_list,
            TopKQueryResult& result);
 
     Status
-    GetVectors(const std::shared_ptr<Context>& context, const std::string& table_name,
+    GetVectors(const std::shared_ptr<Context>& context, const std::vector<std::string>& table_names,
                engine::VectorsData& vectors);
 
     Status

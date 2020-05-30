@@ -346,7 +346,7 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
                                   unpacker.buffer<char>() + unpacker.size());
     // std::cout<<"PARAMS: "<<params<<std::endl;
 
-    auto table_name = params.at("table_name").get<std::string>();
+    auto table_names = params.at("table_names").get<std::vector<std::string>>();
     vectors.query_table_ids = params.value("query_id_table_names", vectors.query_table_ids);
 
     std::vector<Range> ranges;
@@ -356,7 +356,7 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
     int64_t topk = params.value("topk", 10);
 
-    auto status = request_handler_.Search(pctx, table_name, vectors, ranges,
+    auto status = request_handler_.Search(pctx, table_names, vectors, ranges,
                                           topk,
                                           params.value("nprobe", 16),
                                           partitions, file_ids, result);
@@ -394,10 +394,10 @@ handle_get_vectors(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
     auto params = json::from_cbor(unpacker.buffer<char>(),
                                   unpacker.buffer<char>() + unpacker.size());
 
-    auto table_name = params.at("table_name").get<std::string>();
+    auto table_names = params.at("table_names").get<std::vector<std::string>>();
 
 
-    auto status = request_handler_.GetVectors(pctx, table_name, vectors);
+    auto status = request_handler_.GetVectors(pctx, table_names, vectors);
     if (not status.ok())
         return json::to_cbor(create_json_err_obj(status, "Failed to get vectors"));
 
