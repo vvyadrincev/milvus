@@ -25,6 +25,7 @@
 #include <faiss/index_factory.h>
 #include <faiss/index_io.h>
 #include <faiss/MetaIndexes.h>
+#include <faiss/IndexPreTransform.h>
 
 #ifdef MILVUS_GPU_VERSION
 #include <faiss/gpu/GpuAutoTune.h>
@@ -352,7 +353,13 @@ cast_to_ivf_index(){
     if (not idmap_index)
         KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
 
-    auto ivf_index = dynamic_cast<faiss::IndexIVF*>(idmap_index->index);
+
+    auto* index = idmap_index->index;
+    auto pretransform = dynamic_cast<faiss::IndexPreTransform*>(idmap_index->index);
+    if (pretransform)
+        index = pretransform->index;
+
+    auto ivf_index = dynamic_cast<faiss::IndexIVF*>(index);
     if (not ivf_index)
         KNOWHERE_THROW_MSG("index is not ivf_index!");
 

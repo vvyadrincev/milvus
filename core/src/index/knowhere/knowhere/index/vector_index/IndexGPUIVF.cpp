@@ -23,6 +23,7 @@
 #include <faiss/index_io.h>
 #include <faiss/index_factory.h>
 #include <faiss/MetaIndexes.h>
+#include <faiss/IndexPreTransform.h>
 #include <fiu-local.h>
 
 #include "knowhere/adapter/VectorAdapter.h"
@@ -31,6 +32,8 @@
 #include "knowhere/index/vector_index/IndexIVFPQ.h"
 #include "knowhere/index/vector_index/helpers/Cloner.h"
 #include "knowhere/index/vector_index/helpers/FaissIO.h"
+
+#include <boost/algorithm/string/predicate.hpp>
 
 namespace knowhere {
 
@@ -205,8 +208,10 @@ CreateFaissOpts(){
 
     faiss::gpu::GpuClonerOptions opts;
     //useFloat16 affects only PQ indexes
+    //TODO make it dynamic; if PQ > 48
     opts.useFloat16 = true;
-    opts.useFloat16CoarseQuantizer = true;
+    // opts.useFloat16 = false;
+    opts.useFloat16CoarseQuantizer = false;
     opts.indicesOptions = faiss::gpu::INDICES_64_BIT;
     // opts.indicesOptions = faiss::gpu::INDICES_IVF;
     return opts;
@@ -225,9 +230,18 @@ Train(const DatasetPtr& dataset, const Config& config){
 
     GETTENSOR(dataset)
 
+    std::string pretransform;
+    std::string enc = build_cfg->enc_type;
+    if (boost::starts_with(build_cfg->enc_type, "OPQ")){
+        pretransform=build_cfg->enc_type + ",";
+        enc = build_cfg->enc_type.substr(1);
+    }
+
     std::stringstream index_type;
-    index_type << "IVF" << build_cfg->nlist << ","
-               << build_cfg->enc_type;
+    index_type <<pretransform<< "IVF" << build_cfg->nlist << "," << enc;
+
+
+
 
     KNOWHERE_LOG_DEBUG << "Index type: " << index_type.str();
 
@@ -331,7 +345,12 @@ set_nprobe(size_t nprobe){
     if (not idmap_index)
         KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
 
-    auto device_index =dynamic_cast<faiss::gpu::GpuIndexIVF*>(idmap_index->index);
+    auto* index = idmap_index->index;
+    auto pretransform = dynamic_cast<faiss::IndexPreTransform*>(idmap_index->index);
+    if (pretransform)
+        index = pretransform->index;
+
+    auto device_index =dynamic_cast<faiss::gpu::GpuIndexIVF*>(index);
 
     if (!device_index)
         KNOWHERE_THROW_MSG("Not a GpuIndexIVF type.");

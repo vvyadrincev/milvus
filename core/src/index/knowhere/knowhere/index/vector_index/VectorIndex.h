@@ -50,6 +50,9 @@ class VectorIndex : public Index {
     GetIds(std::vector<int64_t>& ids) = 0;
 
     virtual void
+    Reserve(uint64_t bytes, uint64_t vec_cnt){}
+
+    virtual void
     Add(const DatasetPtr& dataset, const Config& config) = 0;
 
     virtual void

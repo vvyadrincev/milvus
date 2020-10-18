@@ -77,6 +77,9 @@ class ExecutionEngineImpl : public ExecutionEngine {
     //    Clone() override;
 
     Status
+    Reserve(uint64_t bytes, uint64_t vec_cnt) override;
+
+    Status
     Merge(const std::string& location) override;
 
     Status

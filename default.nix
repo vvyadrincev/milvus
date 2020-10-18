@@ -1,5 +1,4 @@
-{ pkgs ? (import <nixpkgs> {})
-, version ? "dev"
+{version ? "dev"
 }:
 
 let

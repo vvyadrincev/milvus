@@ -754,11 +754,12 @@ DBImpl::BackgroundTimerTask() {
             break;
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
 
         StartMetricTask();
         StartCompactionTask();
         StartBuildIndexTask();
+
+        std::this_thread::sleep_for(std::chrono::seconds(300));
     }
 }
 
@@ -898,18 +899,28 @@ DBImpl::MergeFiles(const std::string& table_id, const meta::DateT& date, const m
                              table_file.enc_type_);
 
     meta::TableFilesSchema updated;
-    int64_t index_size = 0;
+    int64_t index_size = 0, row_count = 0;
+
+    for (auto& file : files) {
+        index_size += file.file_size_;
+        row_count += file.row_count_;
+        if (index_size >= file.index_file_size_) {
+            break;
+        }
+    }
+    index->Reserve(index_size, row_count);
 
     for (auto& file : files) {
         server::CollectMergeFilesMetrics metrics;
 
-        index->Merge(file.location_);
-        auto file_schema = file;
-        file_schema.file_type_ = meta::TableFileSchema::TO_DELETE;
-        updated.push_back(file_schema);
-        index_size = index->Size();
+        auto status = index->Merge(file.location_);
+        if (status.ok()){
+            auto file_schema = file;
+            file_schema.file_type_ = meta::TableFileSchema::TO_DELETE;
+            updated.push_back(file_schema);
+        }
 
-        if (index_size >= file_schema.index_file_size_) {
+        if (index->Size() >= file.index_file_size_) {
             break;
         }
     }
@@ -1069,14 +1080,8 @@ DBImpl::BackgroundBuildIndex() {
             scheduler::TableFileSchemaPtr file_ptr = std::make_shared<meta::TableFileSchema>(file);
             job->AddToIndexFiles(file_ptr);
             scheduler::JobMgrInst::GetInstance()->Put(job);
-            job2file_map.push_back(std::make_pair(job, file_ptr));
-        }
-
-        // step 3: wait build index finished and mark failed files
-        for (auto iter = job2file_map.begin(); iter != job2file_map.end(); ++iter) {
-            scheduler::BuildIndexJobPtr job = iter->first;
-            meta::TableFileSchema& file_schema = *(iter->second.get());
             job->WaitBuildIndexFinish();
+            meta::TableFileSchema& file_schema = *file_ptr.get();
             if (!job->GetStatus().ok()) {
                 Status status = job->GetStatus();
                 ENGINE_LOG_ERROR << "Building index job " << job->id() << " failed: " << status.ToString();
@@ -1088,7 +1093,16 @@ DBImpl::BackgroundBuildIndex() {
                 index_failed_checker_.MarkSucceedIndexFile(file_schema);
             }
             status = ongoing_files_checker_.UnmarkOngoingFile(file_schema);
+
+            // job2file_map.push_back(std::make_pair(job, file_ptr));
         }
+
+        // step 3: wait build index finished and mark failed files
+        // for (auto iter = job2file_map.begin(); iter != job2file_map.end(); ++iter) {
+        //     scheduler::BuildIndexJobPtr job = iter->first;
+        //     meta::TableFileSchema& file_schema = *(iter->second.get());
+        //     job->WaitBuildIndexFinish();
+        // }
 
         ENGINE_LOG_DEBUG << "Background build index thread finished";
     }

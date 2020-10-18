@@ -177,19 +177,7 @@ GPUFlatFP16::Train(const DatasetPtr& dataset, const Config& config) {
     ResScope rs(temp_resource, gpu_id_, true);
 
 
-    faiss::Index* index_1 = nullptr;
-    faiss::gpu::GpuIndexFlatConfig gpu_config;
-    gpu_config.useFloat16 = true;
-    gpu_config.device = gpu_id_;
-    if (config->enc_type == "Flat")
-        index_1 = new faiss::gpu::GpuIndexFlatIP(temp_resource->faiss_res.get(), config->d, gpu_config);
-
-    if (not index_1)
-        throw std::runtime_error("Unknown encoding type " + config->enc_type);
-
-
-
-    auto idmap = new faiss::IndexIDMap2(index_1);
+    auto idmap = new faiss::IndexIDMap2(new faiss::IndexFlatIP(config->d));
     idmap->own_fields = true;
     index_.reset(idmap);
 
@@ -209,13 +197,7 @@ GPUFlatFP16::SerializeImpl() {
             if (not idmap_index)
                 KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
 
-            auto device_index = idmap_index->index;
-            std::shared_ptr<faiss::Index> host_index;
-            host_index.reset(faiss::gpu::index_gpu_to_cpu(device_index));
-
-            idmap_index->index = host_index.get();
             faiss::write_index(idmap_index, &writer);
-            idmap_index->index = device_index;
         }
         auto data = std::make_shared<uint8_t>();
         data.reset(writer.data_);
@@ -260,19 +242,40 @@ GPUFlatFP16::
 LoadToGPU(){
     if (auto res = FaissGpuResourceMgr::GetInstance().GetRes(gpu_id_)) {
         ResScope rs(res, gpu_id_, false);
-        faiss::gpu::GpuClonerOptions opts;
-        opts.useFloat16 = true;
+        // faiss::gpu::GpuClonerOptions opts;
+        // opts.useFloat16 = true;
+        // opts.verbose = true;
+        faiss::gpu::GpuIndexFlatConfig config;
+        // config.useFloat16 = true;
+        config.device = gpu_id_;
 
         auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
         if (not idmap_index)
             KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
 
-        auto host_index = idmap_index->index;
-        auto device_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(),
-                                                         gpu_id_, host_index, &opts);
-        idmap_index->index = device_index;
+        std::shared_ptr<faiss::Index> temp;
+        temp.reset(idmap_index->index);
+        const auto* host_index = dynamic_cast<const faiss::IndexFlat *>(temp.get());
+        if (not host_index)
+            KNOWHERE_THROW_MSG("host index is not IndexFlat!");
+
+
+        idmap_index->index = new faiss::gpu::GpuIndexFlatIP(res->faiss_res.get(),
+                                                            host_index->d, config);
+
+        const int64_t batch = 3'000'000;
+        const auto batches_cnt = host_index->ntotal/batch + 1;
+        for (int i=0; i < batches_cnt; ++i){
+            auto offs = i * batch;
+            idmap_index->index->add(std::min(batch, host_index->ntotal-offs),
+                                    host_index->xb.data()+offs);
+        }
+
+        // auto device_index = faiss::gpu::index_cpu_to_gpu(res->faiss_res.get(),
+        //                                                  gpu_id_, host_index.get(), &opts);
+        // idmap_index->index = device_index;
         auto size = host_index->ntotal * host_index->d * 2;
-        delete host_index;
+        // delete host_index;
         res_ = res;
         return size;
     } else {

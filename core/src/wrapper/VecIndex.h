@@ -80,6 +80,8 @@ class VecIndex : public cache::DataObj {
         ENGINE_LOG_ERROR << "BuildAll with uint8_t not support";
         return Status::OK();
     }
+    virtual Status
+    Reserve(uint64_t bytes, uint64_t vec_cnt) = 0;
 
     virtual Status
     Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg = Config()) = 0;

@@ -22,7 +22,8 @@
 namespace knowhere {
 
 // TODO(linxj): Get From Config File
-static size_t magic_num = 2;
+//lol
+static size_t magic_num = 1;
 
 size_t
 MemoryIOWriter::operator()(const void* ptr, size_t size, size_t nitems) {

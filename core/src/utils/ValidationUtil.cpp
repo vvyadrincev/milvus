@@ -39,7 +39,7 @@ namespace server {
 
 constexpr size_t TABLE_NAME_SIZE_LIMIT = 255;
 constexpr int64_t TABLE_DIMENSION_LIMIT = 32768;
-constexpr int32_t INDEX_FILE_SIZE_LIMIT = 8192;  // index trigger size max = 4096 MB
+constexpr int32_t INDEX_FILE_SIZE_LIMIT = 98192;  // index trigger size max = 4096 MB
 
 Status
 ValidationUtil::ValidateTableName(const std::string& table_name) {

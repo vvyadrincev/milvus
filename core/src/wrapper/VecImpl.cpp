@@ -85,6 +85,16 @@ GetIds(std::vector<int64_t>& ids){
     }
     return Status::OK();
 }
+Status
+VecIndexImpl::Reserve(uint64_t bytes, uint64_t vec_cnt){
+    try{
+        index_->Reserve(bytes, vec_cnt);
+    }catch(const std::exception& e){
+        WRAPPER_LOG_ERROR << e.what();
+        return Status(KNOWHERE_ERROR, e.what());
+    }
+    return Status::OK();
+}
 
 Status
 VecIndexImpl::Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg) {

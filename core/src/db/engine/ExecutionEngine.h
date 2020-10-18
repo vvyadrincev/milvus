@@ -100,6 +100,9 @@ class ExecutionEngine {
     //    Clone() = 0;
 
     virtual Status
+    Reserve(uint64_t bytes, uint64_t vec_cnt) = 0;
+
+    virtual Status
     Merge(const std::string& location) = 0;
 
     virtual Status

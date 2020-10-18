@@ -88,6 +88,14 @@ IDMAP::search_impl(int64_t n, const float* data, int64_t k, float* distances, in
 }
 
 void
+IDMAP::Reserve(uint64_t bytes, uint64_t vec_cnt){
+    auto file_index = dynamic_cast<faiss::IndexIDMap*>(index_.get());
+    auto flat_index = dynamic_cast<faiss::IndexFlat*>(file_index->index);
+    flat_index->xb.reserve(vec_cnt * Dimension());
+
+}
+
+void
 IDMAP::Add(const DatasetPtr& dataset, const Config& config) {
     if (!index_) {
         KNOWHERE_THROW_MSG("index not initialize");

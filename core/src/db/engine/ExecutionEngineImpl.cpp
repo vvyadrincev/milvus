@@ -557,6 +557,12 @@ ExecutionEngineImpl::CopyToCpu() {
 //    return ret;
 //}
 
+
+Status
+ExecutionEngineImpl::Reserve(uint64_t bytes, uint64_t vec_cnt){
+    return index_->Reserve(bytes, vec_cnt);
+}
+
 Status
 ExecutionEngineImpl::Merge(const std::string& location) {
     if (location == location_) {

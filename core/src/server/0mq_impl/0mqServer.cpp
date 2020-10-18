@@ -491,6 +491,8 @@ ZeroMQServer::
 create_table(const std::shared_ptr<Context>& pctx,
              const std::string& table_name, const json& params){
 
+    auto index_type = params.at("index_type").get<int64_t>();
+
     bool has_table = false;
     Status status =
         request_handler_.HasTable(pctx, table_name, has_table);
@@ -510,6 +512,11 @@ create_table(const std::shared_ptr<Context>& pctx,
     status = request_handler_.CreateTable(pctx, table_name, dim, index_file_size, metric_type,
                                           enc_type);
 
+    if (not status.ok())
+        return status;
+
+    status = create_index(pctx, table_name, params);
+
     return status;
 
 }
@@ -520,7 +527,7 @@ create_index(const std::shared_ptr<Context>& pctx,
              const std::string& table_name, const json& params){
 
     auto index_type = params.at("index_type").get<int64_t>();
-    auto nlist = params.at("ivf_nlist").get<int64_t>();
+    auto nlist = params.value("ivf_nlist", 11000);
     std::string enc_type = params.value("enc_type", "Flat");
 
     auto status = request_handler_.CreateIndex(pctx, table_name, index_type, nlist, enc_type);

@@ -27,7 +27,7 @@ constexpr uint64_t M = K * K;
 constexpr uint64_t G = K * M;
 constexpr uint64_t T = K * G;
 
-constexpr uint64_t MAX_TABLE_FILE_MEM = 8024 * M;
+constexpr uint64_t MAX_TABLE_FILE_MEM = 64 * G;
 
 constexpr int FLOAT_TYPE_SIZE = sizeof(float);
 
