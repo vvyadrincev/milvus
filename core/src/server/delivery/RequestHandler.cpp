@@ -37,6 +37,7 @@
 #include "server/delivery/request/ShowPartitionsRequest.h"
 #include "server/delivery/request/ShowTablesRequest.h"
 #include "server/delivery/request/ClusterizeRequest.h"
+#include "server/delivery/request/CompareFragmentsRequest.h"
 
 namespace milvus {
 namespace server {
@@ -110,6 +111,19 @@ RequestHandler::Search(const std::shared_ptr<Context>& context,
 
     return request_ptr->status();
 }
+
+Status
+RequestHandler::CompareFragments(const std::shared_ptr<Context>& context,
+                                 const engine::CompareFragmentsReq& req,
+                                 json& resp){
+
+    BaseRequestPtr request_ptr = CompareFragmentsRequest::Create(context, req, resp);
+    RequestScheduler::ExecRequest(request_ptr);
+
+    return request_ptr->status();
+}
+
+
 Status
 RequestHandler::GetVectors(const std::shared_ptr<Context>& context,
                            const std::vector<std::string>& table_names,

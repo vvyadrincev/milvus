@@ -81,4 +81,14 @@ FaissBaseIndex::SealImpl() {
 #endif
 }
 
+faiss::IndexIDMap2*
+FaissBaseIndex::
+getIdmap2Index(){
+    auto _index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
+    if (not _index)
+        throw std::runtime_error("Index is not IDMap2 instance!");
+    return _index;
+}
+
+
 }  // namespace knowhere

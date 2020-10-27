@@ -107,6 +107,9 @@ class DB {
                   const meta::DatesT& dates, ResultIds& result_ids, ResultDistances& result_distances) = 0;
 
     virtual Status
+    CompareFragments(const CompareFragmentsReq& req, json& resp)=0;
+
+    virtual Status
     Size(uint64_t& result) = 0;
 
     virtual Status

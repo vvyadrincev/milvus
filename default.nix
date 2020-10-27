@@ -1,4 +1,5 @@
-{version ? "dev"
+{version ? "dev",
+ pkgs ? null
 }:
 
 let
@@ -57,6 +58,7 @@ stdenv.mkDerivation rec {
     zeromq
     cppzmq
     libcbor
+    sparsehash
     #faiss python bindings
     swig
     python3

@@ -563,6 +563,13 @@ ExecutionEngineImpl::Reserve(uint64_t bytes, uint64_t vec_cnt){
     return index_->Reserve(bytes, vec_cnt);
 }
 
+faiss::IndexIDMap2*
+ExecutionEngineImpl::
+GetFaissIndex(){
+    return index_->GetFaissIndex();
+}
+
+
 Status
 ExecutionEngineImpl::Merge(const std::string& location) {
     if (location == location_) {

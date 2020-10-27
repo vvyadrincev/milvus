@@ -27,6 +27,7 @@
 #include "knowhere/index/vector_index/Quantizer.h"
 #include "utils/Log.h"
 #include "utils/Status.h"
+#include <faiss/MetaIndexes.h>
 
 namespace milvus {
 namespace engine {
@@ -82,6 +83,9 @@ class VecIndex : public cache::DataObj {
     }
     virtual Status
     Reserve(uint64_t bytes, uint64_t vec_cnt) = 0;
+
+    virtual faiss::IndexIDMap2*
+    GetFaissIndex() = 0;
 
     virtual Status
     Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg = Config()) = 0;

@@ -28,6 +28,10 @@
 #include <thread>
 #include <utility>
 
+#include <faiss/gpu/GpuDistance.h>
+#include <faiss/IndexIVF.h>
+
+
 #include "Utils.h"
 #include "cache/CpuCacheMgr.h"
 #include "cache/GpuCacheMgr.h"
@@ -45,6 +49,9 @@
 #include "utils/Log.h"
 #include "utils/StringHelpFunctions.h"
 #include "utils/TimeRecorder.h"
+
+#include "knowhere/index/vector_index/helpers/FaissGpuResourceMgr.h"
+
 
 namespace milvus {
 namespace engine {
@@ -619,6 +626,342 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context,
     return status;
 }
 
+struct DBImpl::compare_fragments_stat_t{
+    uint32_t query_sents_total          = 0;
+    uint32_t compared_query_sents_total = 0;
+    uint32_t query_sents_wo_sim         = 0;
+    uint32_t other_sents_total          = 0;
+    uint32_t compared_other_sents_total = 0;
+};
+
+template<class Json>
+void to_json(Json& j, const DBImpl::compare_fragments_stat_t& stat){
+
+    j = {{"query_sents_total", stat.query_sents_total},
+         {"compared_query_sents_total", stat.compared_query_sents_total},
+         {"query_sents_wo_sim", stat.query_sents_wo_sim},
+         {"other_sents_total", stat.other_sents_total},
+         {"compared_other_sents_total", stat.compared_other_sents_total}};
+}
+
+auto decode_fragment_id(int64_t fragment_id){
+    const static unsigned sent_num_mask = 0xffff;
+    const static unsigned doc_id_mask = 0xffffffff;
+
+    uint16_t end_sent = fragment_id & sent_num_mask;
+    uint16_t beg_sent = (fragment_id >> 16) & sent_num_mask;
+    uint32_t doc_id = (fragment_id >> 32) & doc_id_mask;
+    return std::make_tuple(doc_id, beg_sent, end_sent);
+}
+
+int64_t encode_fragment_id(uint32_t doc_id, uint16_t beg_sent, uint16_t end_sent){
+    int64_t fragment_id = doc_id;
+    return (fragment_id << 32) | (uint32_t(beg_sent) << 16) | end_sent;
+}
+
+
+void
+DBImpl::
+InitDirectMap(const std::string& table_id){
+    std::lock_guard g (direct_map_access_);
+    if (direct_map_per_coll_.empty())
+        direct_map_per_coll_.set_empty_key(std::string());
+
+    auto cit = direct_map_per_coll_.find(table_id);
+    if (cit != direct_map_per_coll_.end())
+        return;
+
+    meta::TableFilesSchema direct_files;
+    meta::DatesT dates;
+    std::vector<size_t> ids;
+    auto status = GetDirectFiles(table_id, ids, dates, direct_files);
+    if (!status.ok()) {
+        throw std::runtime_error("Failed to find direct files " + status.ToString());
+    }
+
+    auto row_count = std::accumulate(
+        std::begin(direct_files), std::end(direct_files), 0,
+        [](int total, const auto& o) {return total + o.row_count_;});
+
+    auto& map = direct_map_per_coll_[table_id];
+    map.set_empty_key(0);
+    map.resize(row_count/14);
+
+    for (const auto& file : direct_files ){
+        auto direct_engine = EngineFactory::Build(file.dimension_, file.location_,
+                                                  (EngineType)file.engine_type_,
+                                                  (MetricType)file.metric_type_, file.nlist_,
+                                                  file.enc_type_);
+        direct_indexes_.push_back(direct_engine);
+        direct_engine->Load();
+        auto index = direct_engine->GetFaissIndex();
+        uint32_t prev_doc_id = 0;
+        for(const auto& [k, v] : index->rev_map){
+            auto [doc_id, beg_sent, t] = decode_fragment_id(k);
+            if (prev_doc_id != doc_id){
+                prev_doc_id = doc_id;
+                map.insert(std::pair(doc_id, direct_indexes_.size()-1));
+            }
+        }
+        auto ivf_index = dynamic_cast<faiss::IndexIVF*>(index->index);
+        if (ivf_index)
+            ivf_index->make_direct_map(true);
+    }
+}
+
+std::pair<int, int>
+DBImpl::
+LoadFragmentVectors(const std::string& table_id,
+                    int64_t fragment_id, ResultIds& ids,
+                    std::vector<float>& vectors){
+    InitDirectMap(table_id);
+    auto& map = direct_map_per_coll_[table_id];
+    auto [doc_id, beg_sent, end_sent] = decode_fragment_id(fragment_id);
+    auto dit = map.find(doc_id);
+    if(dit == map.end())
+        return std::pair(0,0);
+
+    direct_indexes_[dit->second]->Load();
+    auto index = direct_indexes_[dit->second]->GetFaissIndex();
+
+    int total = end_sent - beg_sent + 1;
+    int found = 0;
+    while(beg_sent <= end_sent){
+        auto sent_id = encode_fragment_id(doc_id, beg_sent, beg_sent);
+        ++beg_sent;
+
+        auto fit = index->rev_map.find(sent_id);
+        if (fit == index->rev_map.end())
+            continue;
+
+        ++found;
+        ids.push_back(sent_id);
+
+        auto vit = vectors.insert(vectors.end(), index->d, 0);
+        index->index->reconstruct(fit->second, &*vit);
+
+    }
+    return std::pair(total, found);
+
+}
+
+Status
+DBImpl::
+CompareFragments(const CompareFragmentsReq& req, json& resp){
+    auto status = Status();
+    auto result = json::array();
+    compare_fragments_stat_t stat;
+    for (const auto& fragment : req.fragments){
+        auto query_id = fragment.at(0).get<uint64_t>();
+        const auto& fragment_req = fragment.at(1);
+
+        try{
+            json fragment_resp = CompareFragmentImpl(req, query_id, fragment_req, stat);
+            result.push_back({query_id, fragment_resp});
+        }catch(const std::exception& e){
+            return Status(SERVER_UNEXPECTED_ERROR, e.what());
+        }
+    }
+    resp = {{"result", result}, {"stat", json(stat)}};
+    return status;
+
+}
+
+//not used
+void remove_not_found(const std::vector<bool>& found,
+                      int dim,
+                      ResultIds& ids,
+                      std::vector<float>& data){
+    auto found_it = std::find(found.cbegin(), found.cend(), false);
+    if (found_it == found.cend())
+        return;
+    auto offs = std::distance(found.cbegin(), found_it);
+
+    auto ids_it = ids.begin() + offs;
+    for (auto it=ids_it+1; ++found_it != found.cend(); ++it)
+        if(*found_it)
+            *ids_it++ = *it;
+
+    ids.erase(ids_it, ids.end());
+
+    found_it = found.cbegin();
+    std::advance(found_it, offs);
+    auto data_it = data.begin() + offs * dim;
+    for(auto it = data_it+dim; ++found_it != found.cend(); it += dim)
+        if(*found_it){
+            std::memcpy(&*data_it, &*it, dim * sizeof(float));
+            data_it += dim;
+        }
+    data.erase(data_it, data.end());
+
+}
+
+
+auto brute_force_search_gpu(const CompareFragmentsReq& req, int dim,
+                            const std::vector<float>& query,
+                            const std::vector<float>& other){
+
+    faiss::gpu::GpuDistanceParams params;
+    //TODO take metric from table
+    params.metric = faiss::MetricType::METRIC_INNER_PRODUCT;
+    params.k = req.topk;
+    params.dims = dim;
+
+    params.queries = query.data();
+    params.numQueries = query.size() / dim;
+
+    params.vectors = other.data();
+    params.numVectors = other.size() / dim;
+
+    std::vector<float> distances(req.topk * params.numQueries);
+    params.outDistances = distances.data();
+    std::vector<faiss::Index::idx_t> sim_indices(req.topk * params.numQueries);
+    params.outIndices = sim_indices.data();
+
+    auto temp_resource = knowhere::FaissGpuResourceMgr::GetInstance().GetRes(req.gpu_id);
+    knowhere::ResScope rs(temp_resource, req.gpu_id, true);
+
+
+    faiss::gpu::bfKnn(temp_resource->faiss_res.get(), params);
+
+    return std::pair(std::move(sim_indices), std::move(distances));
+
+}
+
+auto brute_force_search(const CompareFragmentsReq& req, int dim,
+                        const std::vector<float>& query,
+                        const std::vector<float>& other){
+    if (req.gpu_id == -1){
+        throw std::runtime_error("Cpu brute force search is not supported!");
+    }
+    return brute_force_search_gpu(req, dim, query, other);
+}
+
+std::tuple<ResultIds, std::vector<float>, uint32_t>
+DBImpl::
+PrepareQueryVectors(const CompareFragmentsReq& req,
+                    uint64_t query_fragment_id,
+                    const engine::meta::TableSchema& table_info,
+                    compare_fragments_stat_t& stat){
+
+    auto [doc_id, beg_sent, end_sent] = decode_fragment_id(query_fragment_id);
+    auto sents_per_fragment = end_sent - beg_sent + 1;
+    stat.query_sents_total += sents_per_fragment;
+
+    ResultIds query_ids;
+    query_ids.reserve(sents_per_fragment);
+    std::vector<float> query_vectors;
+    query_vectors.reserve(sents_per_fragment * table_info.dimension_);
+    auto [total, found] = LoadFragmentVectors(req.query_table, query_fragment_id,
+                                              query_ids, query_vectors);
+    stat.compared_query_sents_total += found;
+
+    return std::tuple(std::move(query_ids), std::move(query_vectors), sents_per_fragment);
+}
+
+std::tuple<ResultIds, std::vector<float>, std::vector<uint16_t>, std::vector<int>>
+DBImpl::
+PrepareOtherVectors(const CompareFragmentsReq& req,
+                    const json& fragment_req,
+                    uint32_t sents_per_fragment,
+                    const engine::meta::TableSchema& table_info,
+                    compare_fragments_stat_t& stat){
+
+    auto other_fragments_cnt = std::accumulate(std::begin(fragment_req), std::end(fragment_req), 0,
+                                               [](int total, const auto& o) {return total + o.at(1).size();});
+    std::vector<float> other_vectors;
+    //estimate size
+    other_vectors.reserve(sents_per_fragment * other_fragments_cnt * table_info.dimension_);
+    ResultIds other_ids;
+    other_ids.reserve(sents_per_fragment * other_fragments_cnt);
+    std::vector<uint16_t> coll_ids;
+    std::vector<int> coll_ids_offs;
+
+    for (const auto& other : fragment_req){
+        const auto& table_name = other.at(0).get_ref<const std::string&>();
+        auto coll_id = other.at(1).get<uint16_t>();
+        const auto& fragment_ids = other.at(2);
+        for(const auto& fragment_id : fragment_ids){
+            auto [total, found] = LoadFragmentVectors(table_name, fragment_id.get<int64_t>(),
+                                                      other_ids, other_vectors);
+            stat.other_sents_total += total;
+            stat.compared_other_sents_total += found;
+        }
+
+        coll_ids.push_back(coll_id);
+        coll_ids_offs.push_back(other_ids.size());
+    }
+    return std::tuple(std::move(other_ids), std::move(other_vectors),
+                      std::move(coll_ids), std::move(coll_ids_offs));
+}
+
+json
+DBImpl::
+CompareFragmentImpl(const CompareFragmentsReq& req, uint64_t query_fragment_id,
+                    const json& fragment_req, compare_fragments_stat_t& stat){
+    if (fragment_req.empty())
+        return json::array();
+
+    engine::meta::TableSchema table_info;
+    table_info.table_id_ = req.query_table;
+    DescribeTable(table_info);
+
+    auto [query_ids, query_vectors, sents_per_fragment] =
+        PrepareQueryVectors(req, query_fragment_id,
+                            table_info, stat);
+
+    auto [other_ids, other_vectors, coll_ids, coll_ids_offs] =
+        PrepareOtherVectors(req, fragment_req,
+                            sents_per_fragment,
+                            table_info, stat);
+
+    auto [sim_indeces, distances] = brute_force_search(req, table_info.dimension_,
+                                                       query_vectors, other_vectors);
+    json resp = json::array();
+    for(int i = 0; i<query_ids.size(); ++i){
+        auto [doc_id, sent_num, t] = decode_fragment_id(query_ids[i]);
+        // std::cout<<"result for query "<<doc_id<<":"<<sent_num<<std::endl;
+        json found_sents = json::array();
+        for(int k = 0; k < req.topk; ++k){
+            auto pos = i*req.topk + k;
+            if (distances[pos] < req.min_sim){
+                if (k == 0)
+                    stat.query_sents_wo_sim++;
+                break;
+            }
+
+            auto [fdoc, fsent, ft] = decode_fragment_id( other_ids[ sim_indeces[pos] ] );
+
+            int coll_id_off = 0;
+            while(sim_indeces[pos] >= coll_ids_offs[coll_id_off]) ++coll_id_off;
+            found_sents.push_back({coll_ids[coll_id_off], fdoc, fsent, distances[pos]});
+            // std::cout<<"k"<<k<<": "<<fdoc<<":"<<fsent<<" - "<<distances[pos]<<std::endl;
+        }
+        resp.push_back({doc_id, sent_num, std::move(found_sents)});
+
+    }
+
+    return resp;
+}
+
+uint64_t
+DBImpl::
+LoadVectors(const ResultIds& query_ids,
+            const std::string& table_id,
+            std::vector<bool>& found, std::vector<float>& float_data){
+
+    meta::TableFilesSchema direct_files;
+
+    meta::DatesT dates;
+    std::vector<size_t> ids;
+
+    auto status = GetDirectFiles(table_id, ids, dates, direct_files);
+    if (!status.ok()) {
+        throw std::runtime_error("Failed to find direct files " + status.ToString());
+    }
+
+    return LoadVectors(query_ids, direct_files, found, float_data);
+}
 
 uint64_t
 DBImpl::LoadVectors(const ResultIds& query_ids, const meta::TableFilesSchema& direct_files,

@@ -79,6 +79,9 @@ class ExecutionEngineImpl : public ExecutionEngine {
     Status
     Reserve(uint64_t bytes, uint64_t vec_cnt) override;
 
+    faiss::IndexIDMap2*
+    GetFaissIndex()override;
+
     Status
     Merge(const std::string& location) override;
 

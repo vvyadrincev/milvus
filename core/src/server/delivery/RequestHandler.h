@@ -61,6 +61,10 @@ class RequestHandler {
            TopKQueryResult& result);
 
     Status
+    CompareFragments(const std::shared_ptr<Context>& context,
+                     const engine::CompareFragmentsReq& req, json& resp);
+
+    Status
     GetVectors(const std::shared_ptr<Context>& context, const std::vector<std::string>& table_names,
                engine::VectorsData& vectors);
 

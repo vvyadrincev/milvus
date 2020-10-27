@@ -95,6 +95,11 @@ VecIndexImpl::Reserve(uint64_t bytes, uint64_t vec_cnt){
     }
     return Status::OK();
 }
+faiss::IndexIDMap2*
+VecIndexImpl::GetFaissIndex(){
+    return index_->GetFaissIndex();
+}
+
 
 Status
 VecIndexImpl::Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg) {

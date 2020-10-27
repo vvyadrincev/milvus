@@ -46,6 +46,9 @@
 #endif
 #include "knowhere/index/vector_index/IndexIVF.h"
 
+#include <boost/algorithm/string/predicate.hpp>
+
+
 namespace knowhere {
 
 using stdclock = std::chrono::high_resolution_clock;
@@ -301,9 +304,20 @@ GenericIVF::Train(const DatasetPtr& dataset, const Config& config) {
 
     GETTENSOR(dataset)
 
+    std::string pretransform;
+    std::string enc = build_cfg->enc_type;
+    if (boost::starts_with(build_cfg->enc_type, "PadPQ")){
+        int N;
+        sscanf(build_cfg->enc_type.c_str(), "PadPQ%d", &N);
+        int t = build_cfg->d / N;
+        int new_d = (t + 1) * N;
+
+        pretransform="Pad" + std::to_string(new_d) + ",";
+        enc = build_cfg->enc_type.substr(3);
+    }
+
     std::stringstream index_type;
-    index_type << "IVF" << build_cfg->nlist << ","
-               << build_cfg->enc_type;
+    index_type<<pretransform << "IVF" << build_cfg->nlist << ","<< enc;
 
     KNOWHERE_LOG_DEBUG << "Index type: " << index_type.str();
 

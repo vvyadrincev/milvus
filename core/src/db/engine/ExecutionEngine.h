@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "utils/Status.h"
+#include <faiss/MetaIndexes.h>
 
 namespace milvus {
 namespace engine {
@@ -101,6 +102,8 @@ class ExecutionEngine {
 
     virtual Status
     Reserve(uint64_t bytes, uint64_t vec_cnt) = 0;
+
+    virtual faiss::IndexIDMap2* GetFaissIndex() = 0;
 
     virtual Status
     Merge(const std::string& location) = 0;

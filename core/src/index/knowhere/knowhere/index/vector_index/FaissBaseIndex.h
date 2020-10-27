@@ -23,6 +23,8 @@
 
 #include "knowhere/common/BinarySet.h"
 
+#include <faiss/MetaIndexes.h>
+
 namespace knowhere {
 
 class FaissBaseIndex {
@@ -38,6 +40,8 @@ class FaissBaseIndex {
     virtual void
     SealImpl();
 
+    faiss::IndexIDMap2*
+    getIdmap2Index();
  public:
     std::shared_ptr<faiss::Index> index_ = nullptr;
 };

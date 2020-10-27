@@ -18,6 +18,7 @@
 #pragma once
 
 #include "db/engine/ExecutionEngine.h"
+#include "utils/Json.h"
 
 #include <faiss/Index.h>
 #include <stdint.h>
@@ -59,6 +60,18 @@ using File2ErrArray = std::map<std::string, std::vector<std::string>>;
 using Table2FileErr = std::map<std::string, File2ErrArray>;
 using File2RefCount = std::map<std::string, int64_t>;
 using Table2FileRef = std::map<std::string, File2RefCount>;
+
+struct CompareFragmentsReq{
+    std::string query_table;
+    json fragments;
+
+    int gpu_id = -1;
+    float min_sim = 0.7;
+
+    //for knn approach
+    int topk = 5;
+
+};
 
 }  // namespace engine
 }  // namespace milvus

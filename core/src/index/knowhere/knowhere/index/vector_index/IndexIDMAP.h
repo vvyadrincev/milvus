@@ -63,6 +63,9 @@ class IDMAP : public VectorIndex, public FaissBaseIndex {
     void
     Reserve(uint64_t bytes, uint64_t vec_cnt)override;
 
+    faiss::IndexIDMap2*
+    GetFaissIndex()override{return getIdmap2Index();}
+
     void
     Add(const DatasetPtr& dataset, const Config& config) override;
 

@@ -34,6 +34,7 @@
 #include "db/Types.h"
 #include "db/insert/MemManager.h"
 #include "utils/ThreadPool.h"
+#include <google/dense_hash_map>
 
 namespace milvus {
 namespace engine {
@@ -108,6 +109,7 @@ class DBImpl : public DB {
                const std::vector<std::string>& table_names,
                VectorsData& vectors) override;
 
+
     Status
     Query(const std::shared_ptr<server::Context>& context, const std::vector<std::string>& table_names,
           const std::vector<std::string>& partition_tags, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
@@ -123,6 +125,35 @@ class DBImpl : public DB {
                   const std::vector<std::string>& file_ids, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
                   const meta::DatesT& dates, ResultIds& result_ids, ResultDistances& result_distances) override;
 
+    Status CompareFragments(const CompareFragmentsReq& req, json& resp)override;
+    struct compare_fragments_stat_t;
+protected:
+    json CompareFragmentImpl(const CompareFragmentsReq& req,
+                             uint64_t query_fragment_id,
+                             const json& fragment_req,
+                             compare_fragments_stat_t& stat);
+
+    std::tuple<ResultIds, std::vector<float>, uint32_t>
+    PrepareQueryVectors(const CompareFragmentsReq& req,
+                        uint64_t query_fragment_id,
+                        const engine::meta::TableSchema& table_info,
+                        compare_fragments_stat_t& stat);
+
+    std::tuple<ResultIds, std::vector<float>, std::vector<uint16_t>, std::vector<int>>
+    PrepareOtherVectors(const CompareFragmentsReq& req,
+                        const json& fragment_req,
+                        uint32_t sents_per_fragment,
+                        const engine::meta::TableSchema& table_info,
+                        compare_fragments_stat_t& stat);
+    void
+    InitDirectMap(const std::string& table_name);
+
+    std::pair<int, int>
+    LoadFragmentVectors(const std::string& table_id,
+                        int64_t fragment_id, ResultIds& ids,
+                        std::vector<float>& vectors);
+public:
+
     Status
     Size(uint64_t& result) override;
 
@@ -135,6 +166,10 @@ class DBImpl : public DB {
     QueryAsync(const std::shared_ptr<server::Context>& context, const std::string& table_id,
                const meta::TableFilesSchema& files, uint64_t k, uint64_t nprobe, const VectorsData& vectors,
                ResultIds& result_ids, ResultDistances& result_distances);
+
+    uint64_t LoadVectors(const ResultIds& query_ids,
+                         const std::string& table_id,
+                         std::vector<bool>& found, std::vector<float>& float_data);
 
     uint64_t LoadVectors(const ResultIds& query_ids,
                          const meta::TableFilesSchema& direct_files,
@@ -224,6 +259,12 @@ class DBImpl : public DB {
 
     IndexFailedChecker index_failed_checker_;
     OngoingFileChecker ongoing_files_checker_;
+
+    using direct_map_t = google::dense_hash_map<std::uint32_t, int>;
+    google::dense_hash_map<std::string, direct_map_t> direct_map_per_coll_;
+    std::vector<ExecutionEnginePtr> direct_indexes_;
+    std::mutex direct_map_access_;
+
 };  // DBImpl
 
 }  // namespace engine

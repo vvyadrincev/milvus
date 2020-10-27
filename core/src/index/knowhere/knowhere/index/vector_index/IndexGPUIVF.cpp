@@ -235,7 +235,16 @@ Train(const DatasetPtr& dataset, const Config& config){
     if (boost::starts_with(build_cfg->enc_type, "OPQ")){
         pretransform=build_cfg->enc_type + ",";
         enc = build_cfg->enc_type.substr(1);
+    }else if (boost::starts_with(build_cfg->enc_type, "PadPQ")){
+        int N;
+        sscanf(build_cfg->enc_type.c_str(), "PadPQ%d", &N);
+        int t = build_cfg->d / N;
+        int new_d = (t + 1) * N;
+
+        pretransform="Pad" + std::to_string(new_d) + ",";
+        enc = build_cfg->enc_type.substr(3);
     }
+
 
     std::stringstream index_type;
     index_type <<pretransform<< "IVF" << build_cfg->nlist << "," << enc;

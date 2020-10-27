@@ -217,6 +217,8 @@ handle_req(const zmq::message_t& msg){
         return handle_create_index(context, unpacker);
     else if (method == "search_by_id")
         return handle_search_by_id(context, unpacker);
+    else if (method == "compare_fragments")
+        return handle_compare_fragments(context, unpacker);
     else if (method == "drop_table")
         return handle_drop_table(context, unpacker);
     else if (method == "get_vectors")
@@ -381,6 +383,29 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
     packer.pack<typed_array_encoder_t<engine::ResultDistances>>(result.distance_list_);
     return packer.move_buffer();
+}
+
+std::vector<uint8_t>
+ZeroMQServer::
+handle_compare_fragments(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+    auto params = json::from_cbor(unpacker.buffer<char>(),
+                                  unpacker.buffer<char>() + unpacker.size());
+    engine::CompareFragmentsReq req;
+    req.query_table = params.at("query_id_table_name").get<std::string>();
+    req.gpu_id = params.value("gpu_id", req.gpu_id);
+    req.min_sim = params.value("min_sim", req.min_sim);
+    req.topk = params.value("topk", req.topk);
+    req.fragments = params.at("fragments");
+
+    json resp;
+    auto status = request_handler_.CompareFragments(pctx, req, resp);
+
+    if (not status.ok())
+        return json::to_cbor(create_json_err_obj(status,
+                                                 "Failed to compare vectors:" + status.ToString()));
+
+    auto out_buf = json::to_cbor(resp);
+    return out_buf;
 }
 
 std::vector<uint8_t>

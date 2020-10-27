@@ -24,6 +24,7 @@
 #include "knowhere/index/Index.h"
 #include "knowhere/index/preprocessor/Preprocessor.h"
 #include "knowhere/index/vector_index/helpers/IndexParameter.h"
+#include <faiss/MetaIndexes.h>
 
 namespace knowhere {
 
@@ -51,6 +52,11 @@ class VectorIndex : public Index {
 
     virtual void
     Reserve(uint64_t bytes, uint64_t vec_cnt){}
+
+    virtual faiss::IndexIDMap2*
+    GetFaissIndex(){
+        return nullptr;
+    }
 
     virtual void
     Add(const DatasetPtr& dataset, const Config& config) = 0;
