@@ -172,6 +172,26 @@ class TestClustering(unittest.TestCase):
         # It's the same operation, so should be bit-exact the same
         self.assertTrue(np.all(ref_centroids == new_centroids))
 
+    def test_init(self):
+        d = 32
+        k = 5
+        xt, xb, xq = get_dataset_2(d, 1000, 0, 0)
+        km = faiss.Kmeans(d, k, niter=4)
+        km.train(xt)
+
+        km2 = faiss.Kmeans(d, k, niter=4)
+        km2.train(xt, init_centroids=km.centroids)
+
+        # check that the initial objective is better for km2 than km
+        self.assertGreater(km.obj[0], km2.obj[0] * 1.01)
+
+    def test_stats(self):
+        d = 32
+        k = 5
+        xt, xb, xq = get_dataset_2(d, 1000, 0, 0)
+        km = faiss.Kmeans(d, k, niter=4)
+        km.train(xt)
+        assert list(km.obj) == [st['obj'] for st in km.iteration_stats]
 
 class TestPCA(unittest.TestCase):
 
@@ -297,8 +317,8 @@ class TestException(unittest.TestCase):
 class TestMapLong2Long(unittest.TestCase):
 
     def test_maplong2long(self):
-        keys = np.array([13, 45, 67])
-        vals = np.array([3, 8, 2])
+        keys = np.array([13, 45, 67], dtype=np.int64)
+        vals = np.array([3, 8, 2], dtype=np.int64)
 
         m = faiss.MapLong2Long()
         m.add(keys, vals)
@@ -483,7 +503,7 @@ class TestScalarQuantizer(unittest.TestCase):
                 D, I = index.search(x[3:], 1)
 
                 # assert D[0, 0] == Dref[0, 0]
-                print(D[0, 0], ((x[3] - x[2]) ** 2).sum())
+                # print(D[0, 0], ((x[3] - x[2]) ** 2).sum())
                 assert D[0, 0] == ((x[3] - x[2]) ** 2).sum()
 
     def test_6bit_equiv(self):
@@ -513,7 +533,7 @@ class TestScalarQuantizer(unittest.TestCase):
             for i in range(20):
                 for j in range(10):
                     dis = ((y[i] - x2[I[i, j]]) ** 2).sum()
-                    print(dis, D[i, j])
+                    # print(dis, D[i, j])
                     assert abs(D[i, j] - dis) / dis < 1e-5
 
 class TestRandom(unittest.TestCase):
@@ -595,6 +615,38 @@ class TestSWIGWrap(unittest.TestCase):
 
         [index.id_map.at(int(i)) for i in range(index.ntotal)]
 
+    def test_downcast_Refine(self):
+
+        index = faiss.IndexRefineFlat(
+            faiss.IndexScalarQuantizer(10, faiss.ScalarQuantizer.QT_8bit)
+        )
+
+        # serialize and deserialize
+        index2 = faiss.deserialize_index(
+            faiss.serialize_index(index)
+        )
+
+        assert isinstance(index2, faiss.IndexRefineFlat)
+
+    def do_test_array_type(self, dtype):
+        """ tests swig_ptr and rev_swig_ptr for this type of array """
+        a = np.arange(12).astype(dtype)
+        ptr = faiss.swig_ptr(a)
+        print(ptr)
+        a2 = faiss.rev_swig_ptr(ptr, 12)
+        np.testing.assert_array_equal(a, a2)
+
+    def test_all_array_types(self):
+        self.do_test_array_type('float32')
+        self.do_test_array_type('float64')
+        self.do_test_array_type('int8')
+        self.do_test_array_type('uint8')
+        self.do_test_array_type('int16')
+        self.do_test_array_type('uint16')
+        self.do_test_array_type('int32')
+        self.do_test_array_type('uint32')
+        self.do_test_array_type('int64')
+        self.do_test_array_type('uint64')
 
 if __name__ == '__main__':
     unittest.main()

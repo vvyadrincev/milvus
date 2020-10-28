@@ -445,7 +445,8 @@ class TestHNSW(unittest.TestCase):
         self.io_and_retest(index, Dhnsw, Ihnsw)
 
     def io_and_retest(self, index, Dhnsw, Ihnsw):
-        _, tmpfile = tempfile.mkstemp()
+        fd, tmpfile = tempfile.mkstemp()
+        os.close(fd)
         try:
             faiss.write_index(index, tmpfile)
             index2 = faiss.read_index(tmpfile)
@@ -530,6 +531,63 @@ class TestDistancesPositive(unittest.TestCase):
         assert np.all(D >= 0)
 
 
+class TestShardReplicas(unittest.TestCase):
+    def test_shard_flag_propagation(self):
+        d = 64                           # dimension
+        nb = 1000
+        rs = np.random.RandomState(1234)
+        xb = rs.rand(nb, d).astype('float32')
+        nlist = 10
+        quantizer1 = faiss.IndexFlatL2(d)
+        quantizer2 = faiss.IndexFlatL2(d)
+        index1 = faiss.IndexIVFFlat(quantizer1, d, nlist)
+        index2 = faiss.IndexIVFFlat(quantizer2, d, nlist)
+
+        index = faiss.IndexShards(d, True)
+        index.add_shard(index1)
+        index.add_shard(index2)
+
+        self.assertFalse(index.is_trained)
+        index.train(xb)
+        self.assertTrue(index.is_trained)
+
+        self.assertEqual(index.ntotal, 0)
+        index.add(xb)
+        self.assertEqual(index.ntotal, nb)
+
+        index.remove_shard(index2)
+        self.assertEqual(index.ntotal, nb / 2)
+        index.remove_shard(index1)
+        self.assertEqual(index.ntotal, 0)
+
+    def test_replica_flag_propagation(self):
+        d = 64                           # dimension
+        nb = 1000
+        rs = np.random.RandomState(1234)
+        xb = rs.rand(nb, d).astype('float32')
+        nlist = 10
+        quantizer1 = faiss.IndexFlatL2(d)
+        quantizer2 = faiss.IndexFlatL2(d)
+        index1 = faiss.IndexIVFFlat(quantizer1, d, nlist)
+        index2 = faiss.IndexIVFFlat(quantizer2, d, nlist)
+
+        index = faiss.IndexReplicas(d, True)
+        index.add_replica(index1)
+        index.add_replica(index2)
+
+        self.assertFalse(index.is_trained)
+        index.train(xb)
+        self.assertTrue(index.is_trained)
+
+        self.assertEqual(index.ntotal, 0)
+        index.add(xb)
+        self.assertEqual(index.ntotal, nb)
+
+        index.remove_replica(index2)
+        self.assertEqual(index.ntotal, nb)
+        index.remove_replica(index1)
+        self.assertEqual(index.ntotal, 0)
+
 class TestReconsException(unittest.TestCase):
 
     def test_recons_exception(self):
@@ -580,7 +638,7 @@ class TestReconsHash(unittest.TestCase):
         # with lookup
         index.reset()
         rs = np.random.RandomState(123)
-        ids = rs.choice(10000, size=200, replace=False)
+        ids = rs.choice(10000, size=200, replace=False).astype(np.int64)
         index.add_with_ids(faiss.randn((100, d), 345), ids[:100])
         index.set_direct_map_type(faiss.DirectMap.Hashtable)
         index.add_with_ids(faiss.randn((100, d), 678), ids[100:])
