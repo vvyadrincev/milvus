@@ -51,6 +51,7 @@
 #include "utils/TimeRecorder.h"
 
 #include "knowhere/index/vector_index/helpers/FaissGpuResourceMgr.h"
+#include "knowhere/index/vector_index/IndexIVF.h"
 
 
 namespace milvus {
@@ -703,7 +704,7 @@ InitDirectMap(const std::string& table_id){
                 map.insert(std::pair(doc_id, direct_indexes_.size()-1));
             }
         }
-        auto ivf_index = dynamic_cast<faiss::IndexIVF*>(index->index);
+        auto ivf_index = knowhere::cast_to_ivf_index(index->index, false);
         if (ivf_index)
             ivf_index->make_direct_map(true);
     }

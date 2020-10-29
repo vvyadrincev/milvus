@@ -217,6 +217,23 @@ CreateFaissOpts(){
     return opts;
 }
 
+faiss::gpu::GpuIndexIVF*
+cast_to_gpu_ivf(faiss::Index* index){
+    auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index);
+    if (idmap_index)
+        index = idmap_index->index;
+
+    auto pretransform = dynamic_cast<faiss::IndexPreTransform*>(index);
+    if (pretransform)
+        index = pretransform->index;
+
+    auto device_index =dynamic_cast<faiss::gpu::GpuIndexIVF*>(index);
+    if (!device_index)
+        KNOWHERE_THROW_MSG("Not a GpuIndexIVF type.");
+
+    return device_index;
+}
+
 
 IndexModelPtr
 GenericGPUIVF::
@@ -239,7 +256,8 @@ Train(const DatasetPtr& dataset, const Config& config){
         int N;
         sscanf(build_cfg->enc_type.c_str(), "PadPQ%d", &N);
         int t = build_cfg->d / N;
-        int new_d = (t + 1) * N;
+        // int new_d = (t + 1) * N;
+        int new_d = 1152;
 
         pretransform="Pad" + std::to_string(new_d) + ",";
         enc = build_cfg->enc_type.substr(3);
@@ -266,6 +284,11 @@ Train(const DatasetPtr& dataset, const Config& config){
 
         auto device_index = faiss::gpu::index_cpu_to_gpu(temp_resource->faiss_res.get(),
                                                          gpu_id_, host_index.get(), &opts);
+
+        auto ivf_index = cast_to_gpu_ivf(device_index);
+        ivf_index->cp.niter = 20;
+        ivf_index->cp.nredo = 6;
+        ivf_index->verbose = true;
 
 
         auto idmap = new faiss::IndexIDMap2(device_index);
@@ -346,24 +369,11 @@ LoadImpl(const BinarySet& index_binary){
 
 }
 
+
 void
 GenericGPUIVF::
 set_nprobe(size_t nprobe){
-
-    auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
-    if (not idmap_index)
-        KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
-
-    auto* index = idmap_index->index;
-    auto pretransform = dynamic_cast<faiss::IndexPreTransform*>(idmap_index->index);
-    if (pretransform)
-        index = pretransform->index;
-
-    auto device_index =dynamic_cast<faiss::gpu::GpuIndexIVF*>(index);
-
-    if (!device_index)
-        KNOWHERE_THROW_MSG("Not a GpuIndexIVF type.");
-
+    auto device_index = cast_to_gpu_ivf(index_.get());
     device_index->nprobe = nprobe;
 }
 

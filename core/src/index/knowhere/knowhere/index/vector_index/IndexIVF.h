@@ -30,6 +30,7 @@ namespace knowhere {
 
 using Graph = std::vector<std::vector<int64_t>>;
 
+
 class IVF : public VectorIndex, public FaissBaseIndex {
  public:
     IVF() : FaissBaseIndex(nullptr) {
@@ -124,10 +125,10 @@ protected:
     search_impl(int64_t n, const float* data, int64_t k, float* distances, int64_t* labels,
                 const Config& cfg)override;
 
-    faiss::IndexIVF* cast_to_ivf_index();
-
 
 };
+faiss::IndexIVF* cast_to_ivf_index(faiss::Index*, bool throw_if_fail = true);
+
 
 class GPUIVF;
 class IVFIndexModel : public IndexModel, public FaissBaseIndex {

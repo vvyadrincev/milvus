@@ -339,7 +339,7 @@ GenericIVF::Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
     std::lock_guard<std::mutex> lk(mutex_);
 
 
-    auto ivf_index = cast_to_ivf_index();
+    auto ivf_index = cast_to_ivf_index(index_.get());
 
     ivf_index->make_direct_map(true);
 
@@ -350,7 +350,7 @@ void
 GenericIVF::search_impl(int64_t n, const float* data, int64_t k, float* distances, int64_t* labels,
                         const Config& cfg) {
 
-    auto ivf_index = cast_to_ivf_index();
+    auto ivf_index = cast_to_ivf_index(index_.get());
     auto search_cfg = std::dynamic_pointer_cast<IVFCfg>(cfg);
     ivf_index->nprobe = search_cfg->nprobe;
 
@@ -361,20 +361,17 @@ GenericIVF::search_impl(int64_t n, const float* data, int64_t k, float* distance
 
 }
 faiss::IndexIVF*
-GenericIVF::
-cast_to_ivf_index(){
-    auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index_.get());
-    if (not idmap_index)
-        KNOWHERE_THROW_MSG("index is not IndexIDMap2!");
+cast_to_ivf_index(faiss::Index* index, bool throw_if_fail){
+    auto idmap_index = dynamic_cast<faiss::IndexIDMap2*>(index);
+    if (idmap_index)
+        index = idmap_index->index;
 
-
-    auto* index = idmap_index->index;
-    auto pretransform = dynamic_cast<faiss::IndexPreTransform*>(idmap_index->index);
+    auto pretransform = dynamic_cast<faiss::IndexPreTransform*>(index);
     if (pretransform)
         index = pretransform->index;
 
     auto ivf_index = dynamic_cast<faiss::IndexIVF*>(index);
-    if (not ivf_index)
+    if (not ivf_index and throw_if_fail)
         KNOWHERE_THROW_MSG("index is not ivf_index!");
 
     return ivf_index;
