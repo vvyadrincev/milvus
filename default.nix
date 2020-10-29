@@ -36,7 +36,7 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ gcc cmake wget ];
   buildInputs = [
-    cudatoolkit_10
+    cudatoolkit_11
     boost169
     zlib
     mysql57
@@ -55,13 +55,14 @@ stdenv.mkDerivation rec {
     gmock
     opentracing-cpp
     aws-sdk-cpp
+    libnsl
     zeromq
     cppzmq
     libcbor
     sparsehash
     #faiss python bindings
     swig
-    python3
+    python37
     python37Packages.numpy
     python37Packages.setuptools
     python37Packages.jupyter

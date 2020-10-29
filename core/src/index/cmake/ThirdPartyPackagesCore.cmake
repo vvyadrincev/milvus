@@ -439,70 +439,52 @@ macro(build_faiss)
     set(FAISS_STATIC_LIB
             "${FAISS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}faiss${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-    set(FAISS_CONFIGURE_ARGS
-            "--prefix=${FAISS_PREFIX}"
-            "CFLAGS=${EP_C_FLAGS}"
-            "CXXFLAGS=${EP_CXX_FLAGS} -mavx2 -mf16c -O3"
-            --without-python)
+    set(FAISS_CMAKE_FLAGS
+      "-DCMAKE_INSTALL_PREFIX=${FAISS_PREFIX}"
+      "-DCMAKE_BUILD_TYPE=Release"
+      "-DCMAKE_CUDA_ARCHITECTURES=75")
+    # set(FAISS_CONFIGURE_ARGS
+    #         "--prefix=${FAISS_PREFIX}"
+    #         "CFLAGS=${EP_C_FLAGS}"
+    #         "CXXFLAGS=${EP_CXX_FLAGS} -mavx2 -mf16c -O3"
+    #         --without-python)
 
-    if (FAISS_WITH_MKL)
-        set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "CPPFLAGS=-DFINTEGER=long -DMKL_ILP64 -m64 -I${MKL_LIB_PATH}/../../include"
-                "LDFLAGS=-L${MKL_LIB_PATH}"
-                )
-    else ()
-        message(STATUS "Build Faiss with OpenBlas/LAPACK")
-        set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "LDFLAGS=-L${OPENBLAS_PREFIX}/lib -L${LAPACK_PREFIX}/lib")
-    endif ()
+    # if (FAISS_WITH_MKL)
+    #     set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
+    #             "CPPFLAGS=-DFINTEGER=long -DMKL_ILP64 -m64 -I${MKL_LIB_PATH}/../../include"
+    #             "LDFLAGS=-L${MKL_LIB_PATH}"
+    #             )
+    # else ()
+    #     message(STATUS "Build Faiss with OpenBlas/LAPACK")
+    #     set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
+    #             "LDFLAGS=-L${OPENBLAS_PREFIX}/lib -L${LAPACK_PREFIX}/lib")
+    # endif ()
 
-    if (KNOWHERE_GPU_VERSION)
-        set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "--with-cuda=${CUDA_TOOLKIT_ROOT_DIR}"
-                "--with-cuda-arch=-gencode=arch=compute_75,code=sm_75"
-                )
-    else ()
-        set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
-                "CPPFLAGS=-DUSE_CPU"
-                --without-cuda)
-    endif ()
+    # if (KNOWHERE_GPU_VERSION)
+    #     set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
+    #             "--with-cuda=${CUDA_TOOLKIT_ROOT_DIR}"
+    #             "--with-cuda-arch=-gencode=arch=compute_75,code=sm_75"
+    #             )
+    # else ()
+    #     set(FAISS_CONFIGURE_ARGS ${FAISS_CONFIGURE_ARGS}
+    #             "CPPFLAGS=-DUSE_CPU"
+    #             --without-cuda)
+    # endif ()
 
-    if (DEFINED ENV{FAISS_SOURCE_URL})
-        set(FAISS_SOURCE_URL "$ENV{FAISS_SOURCE_URL}")
-        externalproject_add(faiss_ep
-                URL
-                ${FAISS_SOURCE_URL}
-                ${EP_LOG_OPTIONS}
-                CONFIGURE_COMMAND
-                "./configure"
-                ${FAISS_CONFIGURE_ARGS}
-                BUILD_COMMAND
-                ${MAKE} ${MAKE_BUILD_ARGS} all
-                BUILD_IN_SOURCE
-                1
-                INSTALL_COMMAND
-                ${MAKE} install
-                BUILD_BYPRODUCTS
-                ${FAISS_STATIC_LIB})
-    else ()
-        externalproject_add(faiss_ep
-                DOWNLOAD_COMMAND
-                ""
-                SOURCE_DIR
-                ${FAISS_SOURCE_DIR}
-                ${EP_LOG_OPTIONS}
-                CONFIGURE_COMMAND
-                "./configure"
-                ${FAISS_CONFIGURE_ARGS}
-                BUILD_COMMAND
-                ${MAKE} ${MAKE_BUILD_ARGS} all
-                BUILD_IN_SOURCE
-                1
-                INSTALL_COMMAND
-                ${MAKE} install
-                BUILD_BYPRODUCTS
-                ${FAISS_STATIC_LIB})
-    endif ()
+    externalproject_add(faiss_ep
+      DOWNLOAD_COMMAND
+      ""
+      SOURCE_DIR
+      ${FAISS_SOURCE_DIR}
+      ${EP_LOG_OPTIONS}
+      CMAKE_ARGS
+      ${FAISS_CMAKE_FLAGS}
+      BUILD_COMMAND
+      ${MAKE} ${MAKE_BUILD_ARGS}
+      INSTALL_COMMAND
+      ${MAKE} install
+      BUILD_BYPRODUCTS
+      ${FAISS_STATIC_LIB})
 
     file(MAKE_DIRECTORY "${FAISS_INCLUDE_DIR}")
     add_library(faiss STATIC IMPORTED)

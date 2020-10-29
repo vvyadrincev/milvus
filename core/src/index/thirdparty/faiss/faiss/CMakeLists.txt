@@ -55,6 +55,7 @@ add_library(faiss
   utils/hamming.cpp
   utils/random.cpp
   utils/utils.cpp
+  utils/jaccard.cpp
 )
 
 set(FAISS_HEADERS

@@ -48,7 +48,6 @@ float fvec_Linf (
         const float * y,
         size_t d);
 
-
 /** Compute pairwise distances between sets of vectors
  *
  * @param d     dimension of the vectors
@@ -176,7 +175,11 @@ void knn_L2sqr (
         size_t d, size_t nx, size_t ny,
         float_maxheap_array_t * res);
 
-
+void knn_jaccard (
+        const float * x,
+        const float * y,
+        size_t d, size_t nx, size_t ny,
+        float_maxheap_array_t * res);
 
 /** same as knn_L2sqr, but base_shift[bno] is subtracted to all
  * computed distances.

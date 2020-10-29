@@ -63,6 +63,8 @@ struct IndexBinaryIVF : IndexBinary {
      */
     IndexBinaryIVF(IndexBinary *quantizer, size_t d, size_t nlist);
 
+    IndexBinaryIVF(IndexBinary *quantizer, size_t d, size_t nlist, MetricType metric);
+
     IndexBinaryIVF();
 
     ~IndexBinaryIVF() override;
@@ -106,6 +108,9 @@ struct IndexBinaryIVF : IndexBinary {
                             ) const;
 
     virtual BinaryInvertedListScanner *get_InvertedListScanner (
+                                         bool store_pairs=false) const;
+
+    virtual BinaryInvertedListScanner *get_InvertedListScannerJaccard (
                                          bool store_pairs=false) const;
 
     /** assign the vectors, then call search_preassign */
