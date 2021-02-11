@@ -38,7 +38,7 @@ class CircleQueue {
     using atomic_size_type = std::atomic_ullong;
     using size_type = uint64_t;
     using const_reference = const value_type&;
-#define MEMORY_ORDER (std::memory_order::memory_order_seq_cst)
+#define MEMORY_ORDER (std::memory_order_seq_cst)
 
  public:
     explicit CircleQueue(size_type cap) : data_(cap, nullptr), capacity_(cap), front_() {

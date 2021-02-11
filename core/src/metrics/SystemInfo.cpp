@@ -16,7 +16,7 @@
 // under the License.
 
 #include "metrics/SystemInfo.h"
-#include "thirdparty/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "utils/Log.h"
 
 #include <dirent.h>

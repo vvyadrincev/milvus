@@ -37,7 +37,8 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ gcc cmake wget ];
   buildInputs = [
     cudatoolkit_11
-    boost169
+    boost175
+    nlohmann_json
     zlib
     mysql57
     sqlite

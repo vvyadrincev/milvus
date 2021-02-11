@@ -468,7 +468,8 @@ DBImpl::GetVectors(const std::shared_ptr<server::Context>& context,
                    VectorsData& vectors){
 
     auto tables = std::accumulate(std::begin(table_names), std::end(table_names), std::string{},
-                                  [](auto& t, const auto& s) {return t += "," + s;});
+                                  [](const std::string& t, const std::string& s)
+                                  {return !t.empty() ? t + "," + s : s;});
     ENGINE_LOG_DEBUG << "GetVectors tables: " << tables
                      << " vecors #: " << vectors.id_array_.size();
 
@@ -910,11 +911,15 @@ CompareFragmentImpl(const CompareFragmentsReq& req, uint64_t query_fragment_id,
     auto [query_ids, query_vectors, sents_per_fragment] =
         PrepareQueryVectors(req, query_fragment_id,
                             table_info, stat);
+    if (query_vectors.empty())
+        return json::array();
 
     auto [other_ids, other_vectors, coll_ids, coll_ids_offs] =
         PrepareOtherVectors(req, fragment_req,
                             sents_per_fragment,
                             table_info, stat);
+    if (other_vectors.empty())
+        return json::array();
 
     auto [sim_indeces, distances] = brute_force_search(req, table_info.dimension_,
                                                        query_vectors, other_vectors);

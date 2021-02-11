@@ -27,7 +27,7 @@
 
 #include "config/YamlConfigMgr.h"
 #include "server/Config.h"
-#include "thirdparty/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "utils/CommonUtil.h"
 #include "utils/StringHelpFunctions.h"
 #include "utils/ValidationUtil.h"

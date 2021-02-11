@@ -23,7 +23,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "thirdparty/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace milvus {
 namespace tracing {

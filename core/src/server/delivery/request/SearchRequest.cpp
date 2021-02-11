@@ -64,7 +64,8 @@ SearchRequest::OnExecute() {
             return Status(SERVER_INVALID_TABLE_NAME, "Pass at least one table name!");
 
         auto tables = std::accumulate(std::begin(table_names_), std::end(table_names_), std::string{},
-                                      [](auto& t, const auto& s) {return t += "," + s;});
+                                      [](const std::string& t, const std::string& s)
+                                      {return !t.empty() ? t + "," + s : s;});
 
 
         std::string hdr = "SearchRequest(tables=" + tables + ", nq=" + std::to_string(vector_count) +
