@@ -62,7 +62,12 @@ using File2RefCount = std::map<std::string, int64_t>;
 using Table2FileRef = std::map<std::string, File2RefCount>;
 
 struct CompareFragmentsReq{
+    //by id request
     std::string query_table;
+    //by data request
+    std::vector<float> float_data;
+    IDNumbers ids;
+
     json fragments;
 
     int gpu_id = -1;

@@ -754,12 +754,12 @@ CompareFragments(const CompareFragmentsReq& req, json& resp){
     auto result = json::array();
     compare_fragments_stat_t stat;
     for (const auto& fragment : req.fragments){
-        auto query_id = fragment.at(0).get<uint64_t>();
+        auto query_info = fragment.at(0);
         const auto& fragment_req = fragment.at(1);
 
         try{
-            json fragment_resp = CompareFragmentImpl(req, query_id, fragment_req, stat);
-            result.push_back({query_id, fragment_resp});
+            json fragment_resp = CompareFragmentImpl(req, query_info, fragment_req, stat);
+            result.push_back({query_info, fragment_resp});
         }catch(const std::exception& e){
             return Status(SERVER_UNEXPECTED_ERROR, e.what());
         }
@@ -799,8 +799,8 @@ void remove_not_found(const std::vector<bool>& found,
 }
 
 
-auto brute_force_search_gpu(const CompareFragmentsReq& req, int dim,
-                            const std::vector<float>& query,
+auto brute_force_search_gpu(const CompareFragmentsReq& req, uint32_t dim,
+                            const std::span<const float>& query,
                             const std::vector<float>& other){
 
     faiss::gpu::GpuDistanceParams params;
@@ -830,8 +830,8 @@ auto brute_force_search_gpu(const CompareFragmentsReq& req, int dim,
 
 }
 
-auto brute_force_search(const CompareFragmentsReq& req, int dim,
-                        const std::vector<float>& query,
+auto brute_force_search(const CompareFragmentsReq& req, uint32_t dim,
+                        const std::span<const float>& query,
                         const std::vector<float>& other){
     if (req.gpu_id == -1){
         throw std::runtime_error("Cpu brute force search is not supported!");
@@ -866,14 +866,14 @@ DBImpl::
 PrepareOtherVectors(const CompareFragmentsReq& req,
                     const json& fragment_req,
                     uint32_t sents_per_fragment,
-                    const engine::meta::TableSchema& table_info,
+                    uint32_t dim,
                     compare_fragments_stat_t& stat){
 
     auto other_fragments_cnt = std::accumulate(std::begin(fragment_req), std::end(fragment_req), 0,
                                                [](int total, const auto& o) {return total + o.at(1).size();});
     std::vector<float> other_vectors;
     //estimate size
-    other_vectors.reserve(sents_per_fragment * other_fragments_cnt * table_info.dimension_);
+    other_vectors.reserve(sents_per_fragment * other_fragments_cnt * dim);
     ResultIds other_ids;
     other_ids.reserve(sents_per_fragment * other_fragments_cnt);
     std::vector<uint16_t> coll_ids;
@@ -897,32 +897,92 @@ PrepareOtherVectors(const CompareFragmentsReq& req,
                       std::move(coll_ids), std::move(coll_ids_offs));
 }
 
+DBImpl::query_vectors_provider_t::
+query_vectors_provider_t(const CompareFragmentsReq& req,
+                         const json& query_info,
+                         DBImpl* dbimpl,
+                         compare_fragments_stat_t& stat):m_req(req), m_query_info(query_info){
+    if (req.query_table.empty() and
+        not (req.float_data.empty() or req.ids.empty())){
+        m_loaded_by_id = false;
+        m_sents_per_fragment = query_info.at(2).get<uint32_t>();
+
+        m_dim = req.float_data.size() / req.ids.size();
+        stat.query_sents_total += m_sents_per_fragment;
+        stat.compared_query_sents_total += m_sents_per_fragment;
+
+    }else if (not req.query_table.empty() and
+              req.float_data.empty() and req.ids.empty()){
+        m_loaded_by_id = true;
+
+        engine::meta::TableSchema table_info;
+        table_info.table_id_ = req.query_table;
+        dbimpl->DescribeTable(table_info);
+        m_dim = table_info.dimension_;
+
+        auto query_fragment_id = query_info.get<uint64_t>();
+        auto [query_ids, query_vectors, sents_per_fragment] =
+            dbimpl->PrepareQueryVectors(req, query_fragment_id,
+                                        table_info, stat);
+        m_ids = std::move(query_ids);
+        m_vectors = std::move(query_vectors);
+        m_sents_per_fragment = sents_per_fragment;
+    }else{
+        throw std::runtime_error("Unknown input state!");
+    }
+
+}
+
+std::span<const float>
+DBImpl::query_vectors_provider_t::get_vectors()const{
+    if(m_loaded_by_id){
+        std::span s(m_vectors.begin(), m_vectors.end());
+        return s;
+    }
+    auto vec_num = m_query_info.at(1).get<uint32_t>();
+    auto vec_cnt = m_query_info.at(2).get<uint32_t>();
+
+    std::span s(m_req.float_data.begin() + vec_num * m_dim, vec_cnt * m_dim);
+    return s;
+}
+
+std::span<const int64_t>
+DBImpl::query_vectors_provider_t::get_ids()const{
+    if(m_loaded_by_id){
+        std::span s(m_ids.begin(), m_ids.end());
+        return s;
+    }
+    auto vec_num = m_query_info.at(1).get<uint32_t>();
+    auto vec_cnt = m_query_info.at(2).get<uint32_t>();
+    std::span s(m_req.ids.begin() + vec_num, vec_cnt);
+    return s;
+}
+
+
 json
 DBImpl::
-CompareFragmentImpl(const CompareFragmentsReq& req, uint64_t query_fragment_id,
+CompareFragmentImpl(const CompareFragmentsReq& req, const json& query_info,
                     const json& fragment_req, compare_fragments_stat_t& stat){
     if (fragment_req.empty())
         return json::array();
 
-    engine::meta::TableSchema table_info;
-    table_info.table_id_ = req.query_table;
-    DescribeTable(table_info);
+    query_vectors_provider_t query_vectors_provider{req, query_info, this, stat};
+    auto query_vectors =  query_vectors_provider.get_vectors();
 
-    auto [query_ids, query_vectors, sents_per_fragment] =
-        PrepareQueryVectors(req, query_fragment_id,
-                            table_info, stat);
     if (query_vectors.empty())
         return json::array();
 
     auto [other_ids, other_vectors, coll_ids, coll_ids_offs] =
         PrepareOtherVectors(req, fragment_req,
-                            sents_per_fragment,
-                            table_info, stat);
+                            query_vectors_provider.sents_per_fragment(),
+                            query_vectors_provider.dim(), stat);
     if (other_vectors.empty())
         return json::array();
 
-    auto [sim_indeces, distances] = brute_force_search(req, table_info.dimension_,
+    auto [sim_indeces, distances] = brute_force_search(req, query_vectors_provider.dim(),
                                                        query_vectors, other_vectors);
+
+    auto query_ids = query_vectors_provider.get_ids();
     json resp = json::array();
     for(int i = 0; i<query_ids.size(); ++i){
         auto [doc_id, sent_num, t] = decode_fragment_id(query_ids[i]);

@@ -217,6 +217,8 @@ handle_req(const zmq::message_t& msg){
         return handle_create_index(context, unpacker);
     else if (method == "search_by_id")
         return handle_search_by_id(context, unpacker);
+    else if (method == "compare_fragments_by_id")
+        return handle_compare_fragments_by_id(context, unpacker);
     else if (method == "compare_fragments")
         return handle_compare_fragments(context, unpacker);
     else if (method == "drop_table")
@@ -388,14 +390,43 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 std::vector<uint8_t>
 ZeroMQServer::
 handle_compare_fragments(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+    engine::CompareFragmentsReq req;
+    auto float_decoder = unpacker.unpack<typed_array_decoder_t<float>>();
+    req.float_data = float_decoder.copy();
+
+    req.ids = decode_ids(unpacker);
+
+    return compare_fragments_impl(pctx, std::move(req), unpacker);
+}
+std::vector<uint8_t>
+ZeroMQServer::
+handle_compare_fragments_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+    engine::CompareFragmentsReq req;
+    return compare_fragments_impl(pctx, std::move(req), unpacker);
+}
+
+std::vector<uint8_t>
+ZeroMQServer::
+compare_fragments_impl(const std::shared_ptr<Context>& pctx,
+                       engine::CompareFragmentsReq&& req,
+                       Unpacker& unpacker){
+
     auto params = json::from_cbor(unpacker.buffer<char>(),
                                   unpacker.buffer<char>() + unpacker.size());
-    engine::CompareFragmentsReq req;
-    req.query_table = params.at("query_id_table_name").get<std::string>();
+
+    if (params.contains("query_id_table_name"))
+        req.query_table = params.at("query_id_table_name").get<std::string>();
+
     req.gpu_id = params.value("gpu_id", req.gpu_id);
     req.min_sim = params.value("min_sim", req.min_sim);
     req.topk = params.value("topk", req.topk);
     req.fragments = params.at("fragments");
+
+    bool norm = params.value("normalize_L2", false);
+    if (norm and not req.float_data.empty())
+        faiss::fvec_renorm_L2(req.float_data.size() / req.ids.size(),
+                              req.ids.size(),
+                              req.float_data.data());
 
     json resp;
     auto status = request_handler_.CompareFragments(pctx, req, resp);

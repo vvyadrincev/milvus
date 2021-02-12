@@ -27,6 +27,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <span>
 
 #include "DB.h"
 #include "db/IndexFailedChecker.h"
@@ -129,9 +130,38 @@ class DBImpl : public DB {
     struct compare_fragments_stat_t;
 protected:
     json CompareFragmentImpl(const CompareFragmentsReq& req,
-                             uint64_t query_fragment_id,
+                             const json& query_info,
                              const json& fragment_req,
                              compare_fragments_stat_t& stat);
+
+    struct query_vectors_provider_t{
+        query_vectors_provider_t(const CompareFragmentsReq& req,
+                                 const json& query_info,
+                                 DBImpl* dbimpl,
+                                 compare_fragments_stat_t& stat);
+
+
+        uint32_t sents_per_fragment()const{
+            return m_sents_per_fragment;
+        }
+        uint32_t dim()const{
+            return m_dim;
+        }
+        std::span<const float> get_vectors()const;
+        std::span<const int64_t> get_ids()const;
+
+
+    protected:
+        const CompareFragmentsReq& m_req;
+        const json& m_query_info;
+
+
+        bool               m_loaded_by_id;
+        std::vector<float> m_vectors;
+        ResultIds          m_ids;
+        uint32_t           m_sents_per_fragment;
+        uint32_t           m_dim;
+    };
 
     std::tuple<ResultIds, std::vector<float>, uint32_t>
     PrepareQueryVectors(const CompareFragmentsReq& req,
@@ -143,7 +173,7 @@ protected:
     PrepareOtherVectors(const CompareFragmentsReq& req,
                         const json& fragment_req,
                         uint32_t sents_per_fragment,
-                        const engine::meta::TableSchema& table_info,
+                        uint32_t dim,
                         compare_fragments_stat_t& stat);
     void
     InitDirectMap(const std::string& table_name);
