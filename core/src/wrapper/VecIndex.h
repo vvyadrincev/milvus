@@ -86,6 +86,7 @@ class VecIndex : public cache::DataObj {
 
     virtual faiss::IndexIDMap2*
     GetFaissIndex() = 0;
+    virtual void SetFaissIndex(faiss::Index* idx)=0;
 
     virtual Status
     Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg = Config()) = 0;
@@ -175,7 +176,7 @@ extern Status
 write_index(VecIndexPtr index, const std::string& location);
 
 extern VecIndexPtr
-read_index(const std::string& location);
+read_index(IndexType index_type, const std::string& location);
 
 VecIndexPtr
 read_index(const std::string& location, knowhere::BinarySet& index_binary);

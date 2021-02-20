@@ -41,6 +41,8 @@
 #ifdef MILVUS_GPU_VERSION
 #include <cuda.h>
 
+#include <faiss/gpu/GpuCloner.h>
+
 #include "knowhere/index/vector_index/IndexGPUIDMAP.h"
 #include "knowhere/index/vector_index/IndexGPUIVF.h"
 #include "knowhere/index/vector_index/IndexGPUIVFPQ.h"
@@ -186,70 +188,85 @@ LoadVecIndex(const IndexType& index_type, const knowhere::BinarySet& index_binar
 }
 
 VecIndexPtr
-read_index(const std::string& location) {
+read_index(IndexType index_type, const std::string& location) {
+
     fiu_return_on("read_null_index", nullptr);
     fiu_do_on("vecIndex.throw_read_exception", throw std::exception());
     TimeRecorder recorder("read_index");
-    knowhere::BinarySet load_data_list;
 
-    bool s3_enable = false;
-    server::Config& config = server::Config::GetInstance();
-    config.GetStorageConfigS3Enable(s3_enable);
-
-    std::shared_ptr<storage::IOReader> reader_ptr;
-    if (s3_enable) {
-        reader_ptr = std::make_shared<storage::S3IOReader>(location);
-    } else {
-        reader_ptr = std::make_shared<storage::FileIOReader>(location);
-    }
-
-    recorder.RecordSection("Start");
-
+    auto reader_ptr = std::make_shared<storage::FileIOReader>(location);
     size_t length = reader_ptr->length();
     if (length <= 0) {
         return nullptr;
     }
 
-    size_t rp = 0;
-    reader_ptr->seekg(0);
+    auto index = GetVecIndexFactory(index_type);
+    if (index == nullptr)
+        return nullptr;
+    auto faiss_index = faiss::read_index(location.c_str());
+    index->SetFaissIndex(faiss_index);
+    return index;
 
-    auto current_type = IndexType::INVALID;
-    reader_ptr->read(&current_type, sizeof(current_type));
-    rp += sizeof(current_type);
-    reader_ptr->seekg(rp);
+    // knowhere::BinarySet load_data_list;
 
-    while (rp < length) {
-        size_t meta_length;
-        reader_ptr->read(&meta_length, sizeof(meta_length));
-        rp += sizeof(meta_length);
-        reader_ptr->seekg(rp);
+    // bool s3_enable = false;
+    // server::Config& config = server::Config::GetInstance();
+    // config.GetStorageConfigS3Enable(s3_enable);
 
-        auto meta = new char[meta_length];
-        reader_ptr->read(meta, meta_length);
-        rp += meta_length;
-        reader_ptr->seekg(rp);
+    // std::shared_ptr<storage::IOReader> reader_ptr;
+    // if (s3_enable) {
+    //     reader_ptr = std::make_shared<storage::S3IOReader>(location);
+    // } else {
+    //     reader_ptr = std::make_shared<storage::FileIOReader>(location);
+    // }
 
-        size_t bin_length;
-        reader_ptr->read(&bin_length, sizeof(bin_length));
-        rp += sizeof(bin_length);
-        reader_ptr->seekg(rp);
+    // recorder.RecordSection("Start");
 
-        auto bin = new uint8_t[bin_length];
-        reader_ptr->read(bin, bin_length);
-        rp += bin_length;
-        reader_ptr->seekg(rp);
+    // // size_t length = reader_ptr->length();
+    // // if (length <= 0) {
+    // //     return nullptr;
+    // // }
 
-        auto binptr = std::make_shared<uint8_t>();
-        binptr.reset(bin);
-        load_data_list.Append(std::string(meta, meta_length), binptr, bin_length);
-        delete[] meta;
-    }
+    // size_t rp = 0;
+    // reader_ptr->seekg(0);
 
-    double span = recorder.RecordSection("End");
-    double rate = length * 1000000.0 / span / 1024 / 1024;
-    STORAGE_LOG_DEBUG << "read_index(" << location << ") rate " << rate << "MB/s";
+    // auto current_type = IndexType::INVALID;
+    // reader_ptr->read(&current_type, sizeof(current_type));
+    // rp += sizeof(current_type);
+    // reader_ptr->seekg(rp);
 
-    return LoadVecIndex(current_type, load_data_list, length);
+    // while (rp < length) {
+    //     size_t meta_length;
+    //     reader_ptr->read(&meta_length, sizeof(meta_length));
+    //     rp += sizeof(meta_length);
+    //     reader_ptr->seekg(rp);
+
+    //     auto meta = new char[meta_length];
+    //     reader_ptr->read(meta, meta_length);
+    //     rp += meta_length;
+    //     reader_ptr->seekg(rp);
+
+    //     size_t bin_length;
+    //     reader_ptr->read(&bin_length, sizeof(bin_length));
+    //     rp += sizeof(bin_length);
+    //     reader_ptr->seekg(rp);
+
+    //     auto bin = new uint8_t[bin_length];
+    //     reader_ptr->read(bin, bin_length);
+    //     rp += bin_length;
+    //     reader_ptr->seekg(rp);
+
+    //     auto binptr = std::make_shared<uint8_t>();
+    //     binptr.reset(bin);
+    //     load_data_list.Append(std::string(meta, meta_length), binptr, bin_length);
+    //     delete[] meta;
+    // }
+
+    // double span = recorder.RecordSection("End");
+    // double rate = length * 1000000.0 / span / 1024 / 1024;
+    // STORAGE_LOG_DEBUG << "read_index(" << location << ") rate " << rate << "MB/s";
+
+    // return LoadVecIndex(current_type, load_data_list, length);
 }
 
 Status
@@ -257,44 +274,62 @@ write_index(VecIndexPtr index, const std::string& location) {
     try {
         TimeRecorder recorder("write_index");
 
-        auto binaryset = index->Serialize();
-        auto index_type = index->GetType();
+        auto idmap_index = index->GetFaissIndex();
 
-        fiu_do_on("VecIndex.write_index.throw_knowhere_exception", throw knowhere::KnowhereException(""));
-        fiu_do_on("VecIndex.write_index.throw_std_exception", throw std::exception());
-        fiu_do_on("VecIndex.write_index.throw_no_space_exception",
-                  throw Exception(SERVER_INVALID_ARGUMENT, "No space left on device"));
-
-        bool s3_enable = false;
-        server::Config& config = server::Config::GetInstance();
-        config.GetStorageConfigS3Enable(s3_enable);
-
-        std::shared_ptr<storage::IOWriter> writer_ptr;
-        if (s3_enable) {
-            writer_ptr = std::make_shared<storage::S3IOWriter>(location);
-        } else {
-            writer_ptr = std::make_shared<storage::FileIOWriter>(location);
+        if(auto ifl = dynamic_cast<const faiss::gpu::GpuIndex *>(idmap_index->index)) {
+            auto host_index = std::shared_ptr<faiss::Index>();
+            host_index.reset(faiss::gpu::index_gpu_to_cpu(idmap_index->index));
+            auto device_index = idmap_index->index;
+            idmap_index->index = host_index.get();
+            faiss::write_index(idmap_index, location.c_str());
+            idmap_index->index = device_index;
+        }else{
+            faiss::write_index(idmap_index, location.c_str());
         }
 
-        recorder.RecordSection("Start");
+        return Status::OK();
 
-        writer_ptr->write(&index_type, sizeof(IndexType));
 
-        for (auto& iter : binaryset.binary_map_) {
-            auto meta = iter.first.c_str();
-            size_t meta_length = iter.first.length();
-            writer_ptr->write(&meta_length, sizeof(meta_length));
-            writer_ptr->write((void*)meta, meta_length);
 
-            auto binary = iter.second;
-            int64_t binary_length = binary->size;
-            writer_ptr->write(&binary_length, sizeof(binary_length));
-            writer_ptr->write((void*)binary->data.get(), binary_length);
-        }
+    //     auto binaryset = index->Serialize();
+    //     auto index_type = index->GetType();
 
-        double span = recorder.RecordSection("End");
-        double rate = writer_ptr->length() * 1000000.0 / span / 1024 / 1024;
-        STORAGE_LOG_DEBUG << "write_index(" << location << ") rate " << rate << "MB/s";
+    //     fiu_do_on("VecIndex.write_index.throw_knowhere_exception", throw knowhere::KnowhereException(""));
+
+    //     fiu_do_on("VecIndex.write_index.throw_std_exception", throw std::exception());
+    //     fiu_do_on("VecIndex.write_index.throw_no_space_exception",
+    //               throw Exception(SERVER_INVALID_ARGUMENT, "No space left on device"));
+
+    //     bool s3_enable = false;
+    //     server::Config& config = server::Config::GetInstance();
+    //     config.GetStorageConfigS3Enable(s3_enable);
+
+    //     std::shared_ptr<storage::IOWriter> writer_ptr;
+    //     if (s3_enable) {
+    //         writer_ptr = std::make_shared<storage::S3IOWriter>(location);
+    //     } else {
+    //         writer_ptr = std::make_shared<storage::FileIOWriter>(location);
+    //     }
+
+    //     recorder.RecordSection("Start");
+
+    //     writer_ptr->write(&index_type, sizeof(IndexType));
+
+    //     for (auto& iter : binaryset.binary_map_) {
+    //         auto meta = iter.first.c_str();
+    //         size_t meta_length = iter.first.length();
+    //         writer_ptr->write(&meta_length, sizeof(meta_length));
+    //         writer_ptr->write((void*)meta, meta_length);
+
+    //         auto binary = iter.second;
+    //         int64_t binary_length = binary->size;
+    //         writer_ptr->write(&binary_length, sizeof(binary_length));
+    //         writer_ptr->write((void*)binary->data.get(), binary_length);
+    //     }
+
+    //     double span = recorder.RecordSection("End");
+    //     double rate = writer_ptr->length() * 1000000.0 / span / 1024 / 1024;
+    //     STORAGE_LOG_DEBUG << "write_index(" << location << ") rate " << rate << "MB/s";
     } catch (knowhere::KnowhereException& e) {
         WRAPPER_LOG_ERROR << e.what();
         return Status(KNOWHERE_UNEXPECTED_ERROR, e.what());

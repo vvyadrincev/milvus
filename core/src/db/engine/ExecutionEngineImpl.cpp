@@ -390,6 +390,7 @@ ExecutionEngineImpl::Serialize() {
 
 Status
 ExecutionEngineImpl::Load(bool to_cache, bool force) {
+    auto index_type = index_->GetType();
     if (force)
         index_ = nullptr;
     else
@@ -399,7 +400,9 @@ ExecutionEngineImpl::Load(bool to_cache, bool force) {
         try {
             double physical_size = PhysicalSize();
             server::CollectExecutionEngineMetrics metrics(physical_size);
-            index_ = read_index(location_);
+
+            index_ = read_index(index_type, location_);
+            index_->set_size(physical_size);
             if (index_ == nullptr) {
                 std::string msg = "Failed to load index from " + location_;
                 ENGINE_LOG_ERROR << msg;
@@ -582,7 +585,9 @@ ExecutionEngineImpl::Merge(const std::string& location) {
         try {
             double physical_size = server::CommonUtil::GetFileSize(location);
             server::CollectExecutionEngineMetrics metrics(physical_size);
-            to_merge = read_index(location);
+            auto index = read_index(index_->GetType(), location);
+            index->set_size(physical_size);
+            to_merge = index;
         } catch (std::exception& e) {
             ENGINE_LOG_ERROR << e.what();
             return Status(DB_ERROR, e.what());

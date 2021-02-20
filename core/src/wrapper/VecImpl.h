@@ -54,6 +54,7 @@ class VecIndexImpl : public VecIndex {
     Reserve(uint64_t bytes, uint64_t vec_cnt) override;
     faiss::IndexIDMap2*
     GetFaissIndex()override;
+    void SetFaissIndex(faiss::Index* idx)override;
 
     Status Reconstruct(std::vector<int64_t> ids, std::vector<float>& xb,
                        std::vector<bool>& found) override;

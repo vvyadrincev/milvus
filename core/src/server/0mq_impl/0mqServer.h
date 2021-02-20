@@ -55,6 +55,7 @@ public:
 
 protected:
 
+    void main_loop();
     std::string recv_str(zmq::socket_t& socket);
 
     void try_process(zmq::socket_t& socket);

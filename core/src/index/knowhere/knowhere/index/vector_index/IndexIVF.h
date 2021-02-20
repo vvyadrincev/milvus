@@ -54,6 +54,10 @@ class IVF : public VectorIndex, public FaissBaseIndex {
     faiss::IndexIDMap2*
     GetFaissIndex()override{return getIdmap2Index();}
 
+    void SetFaissIndex(faiss::Index* idx)override{
+        index_.reset(idx);
+    }
+
     void GetIds(std::vector<int64_t>& ids) override;
 
     void

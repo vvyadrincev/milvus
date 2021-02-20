@@ -94,6 +94,8 @@ public:
                                                                    m_size(size){}
 
     ~typed_array_decoder_t(){
+        if(m_bin_arr_item)
+            cbor_decref(&m_bin_arr_item);
         if (m_tag_item)
             cbor_decref(&m_tag_item);
     }

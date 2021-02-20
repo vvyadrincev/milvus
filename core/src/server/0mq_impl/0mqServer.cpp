@@ -17,6 +17,9 @@ namespace zeromq {
 
 
 void ZeroMQServer::Start(){
+    std::thread(&ZeroMQServer::main_loop, this).detach();
+}
+void ZeroMQServer::main_loop(){
 
     zmq::socket_t clients (zmq_context_, zmq::socket_type::router);
     clients.bind(opts_.endpoint);

@@ -100,6 +100,9 @@ VecIndexImpl::GetFaissIndex(){
     return index_->GetFaissIndex();
 }
 
+void VecIndexImpl::SetFaissIndex(faiss::Index* idx){
+    index_->SetFaissIndex(idx);
+}
 
 Status
 VecIndexImpl::Add(const int64_t& nb, const float* xb, const int64_t* ids, const Config& cfg) {

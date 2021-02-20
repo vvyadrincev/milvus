@@ -759,6 +759,9 @@ CompareFragments(const CompareFragmentsReq& req, json& resp){
 
         try{
             json fragment_resp = CompareFragmentImpl(req, query_info, fragment_req, stat);
+            if (req.query_table.empty())
+                //unify response format when searching is done for vectors
+                query_info = query_info.at(0);
             result.push_back({query_info, fragment_resp});
         }catch(const std::exception& e){
             return Status(SERVER_UNEXPECTED_ERROR, e.what());

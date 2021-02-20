@@ -57,6 +57,10 @@ class VectorIndex : public Index {
     GetFaissIndex(){
         return nullptr;
     }
+    virtual void
+    SetFaissIndex(faiss::Index*){
+    }
+
 
     virtual void
     Add(const DatasetPtr& dataset, const Config& config) = 0;
