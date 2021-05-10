@@ -218,6 +218,8 @@ handle_req(const zmq::message_t& msg){
         return handle_add(context, unpacker);
     else if (method == "create_index")
         return handle_create_index(context, unpacker);
+    else if (method == "search")
+        return handle_search(context, unpacker);
     else if (method == "search_by_id")
         return handle_search_by_id(context, unpacker);
     else if (method == "compare_fragments_by_id")
@@ -343,18 +345,43 @@ handle_drop_table(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
 std::vector<uint8_t>
 ZeroMQServer::
+handle_search(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
+    engine::VectorsData vectors;
+    vectors.vector_count_ = unpacker.unpack<size_decoder_t>().copy();
+    auto float_decoder = unpacker.unpack<typed_array_decoder_t<float>>();
+    vectors.float_data_ = float_decoder.copy();
+
+    return search_impl(pctx, std::move(vectors), unpacker);
+
+
+}
+std::vector<uint8_t>
+ZeroMQServer::
 handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
 
     engine::VectorsData vectors;
     vectors.id_array_ = decode_ids(unpacker);
     vectors.vector_count_ = vectors.id_array_.size();
+    return search_impl(pctx, std::move(vectors), unpacker);
+}
 
+std::vector<uint8_t>
+ZeroMQServer::
+search_impl(const std::shared_ptr<Context>& pctx,
+            engine::VectorsData&& vectors,
+            Unpacker& unpacker){
     auto params = json::from_cbor(unpacker.buffer<char>(),
                                   unpacker.buffer<char>() + unpacker.size());
     // std::cout<<"PARAMS: "<<params<<std::endl;
 
     auto table_names = params.at("table_names").get<std::vector<std::string>>();
-    vectors.query_table_ids = params.value("query_id_table_names", vectors.query_table_ids);
+    vectors.query_table_ids = params.value("query_id_table_names", table_names);
+
+    bool norm = params.value("normalize_L2", true);
+    if (norm and not vectors.float_data_.empty())
+        faiss::fvec_renorm_L2(vectors.float_data_.size() / vectors.vector_count_,
+                              vectors.vector_count_,
+                              vectors.float_data_.data());
 
     std::vector<Range> ranges;
     std::vector<std::string> partitions;
@@ -368,7 +395,7 @@ handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker){
                                           params.value("nprobe", 16),
                                           partitions, file_ids, result);
     if (not status.ok())
-        return json::to_cbor(create_json_err_obj(status, "Failed to search by ids"));
+        return json::to_cbor(create_json_err_obj(status, "Failed to search"));
 
     if (result.row_num_ != vectors.vector_count_ or
         result.id_list_.size() != vectors.vector_count_ * topk or

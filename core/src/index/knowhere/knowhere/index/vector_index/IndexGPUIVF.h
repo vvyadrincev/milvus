@@ -114,6 +114,8 @@ public:
 
     VectorIndexPtr
     CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size)override;
+    VectorIndexPtr
+    CopyCpuToGpu(const int64_t& device_id, const Config& config)override;
 
 protected:
     void set_nprobe(size_t nprobe)override;

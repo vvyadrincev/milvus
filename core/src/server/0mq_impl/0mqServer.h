@@ -66,7 +66,11 @@ protected:
     std::vector<uint8_t> handle_add(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
     std::vector<uint8_t> handle_create_index(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
     std::vector<uint8_t> handle_drop_table(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
+    std::vector<uint8_t> handle_search(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
     std::vector<uint8_t> handle_search_by_id(const std::shared_ptr<Context>& pctx, Unpacker& unpacker);
+    std::vector<uint8_t> search_impl(const std::shared_ptr<Context>& pctx,
+                                     engine::VectorsData&& vectors,
+                                     Unpacker& unpacker);
     std::vector<uint8_t> handle_compare_fragments_by_id(const std::shared_ptr<Context>& pctx,
                                                         Unpacker& unpacker);
     std::vector<uint8_t> handle_compare_fragments(const std::shared_ptr<Context>& pctx,

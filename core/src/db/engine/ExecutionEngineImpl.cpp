@@ -390,7 +390,8 @@ ExecutionEngineImpl::Serialize() {
 
 Status
 ExecutionEngineImpl::Load(bool to_cache, bool force) {
-    auto index_type = index_->GetType();
+    //LOL
+    auto index_type = CreatetVecIndex(index_type_)->GetType();
     if (force)
         index_ = nullptr;
     else

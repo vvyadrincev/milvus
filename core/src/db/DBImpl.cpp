@@ -608,7 +608,7 @@ DBImpl::Query(const std::shared_ptr<server::Context>& context,
     if (not status.ok())
         return status;
 
-    if (result_ids.size() != found_query_ids.size() * k)
+    if (!found_query_ids.empty() && result_ids.size() != found_query_ids.size() * k)
         throw std::runtime_error("Wrong result size. Maybe a collection is empty.");
 
 

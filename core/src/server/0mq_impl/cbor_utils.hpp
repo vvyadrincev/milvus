@@ -26,6 +26,58 @@ struct cbor_item_holder_t{
     cbor_item_t* item;
 };
 
+class size_decoder_t{
+public:
+    size_decoder_t(const std::vector<uint8_t>& buffer):m_buffer(buffer.data()),
+                                                       m_size(buffer.size()){}
+    size_decoder_t(const uint8_t* buffer, std::size_t size):m_buffer(buffer),
+                                                            m_size(size){}
+
+    ~size_decoder_t(){
+        if (m_item)
+            cbor_decref(&m_item);
+    }
+
+    void init(){
+        struct cbor_load_result result;
+        m_item = cbor_load(m_buffer, m_size, &result);
+
+        if (not m_item)
+            throw std::runtime_error("CBOR parse error, code: " + std::to_string(result.error.code));
+
+        m_read_size = result.read;
+
+        if (not cbor_isa_uint(m_item))
+            throw std::runtime_error("Size should have uint type!");
+    }
+
+    std::size_t read_size()const{
+        return m_read_size;
+    }
+
+    uint64_t copy(){
+        if (not m_item)
+            init();
+
+        switch(cbor_int_get_width(m_item)){
+        case CBOR_INT_8: return cbor_get_uint8(m_item);
+        case CBOR_INT_16: return cbor_get_uint16(m_item);
+        case CBOR_INT_32: return cbor_get_uint32(m_item);
+        case CBOR_INT_64: return cbor_get_uint64(m_item);
+        }
+    }
+
+private:
+
+    const uint8_t*     m_buffer;
+    std::size_t        m_size;
+
+
+    cbor_item_t* m_item      = nullptr;
+    std::size_t  m_read_size = 0;
+
+};
+
 
 class string_decoder_t{
 public:

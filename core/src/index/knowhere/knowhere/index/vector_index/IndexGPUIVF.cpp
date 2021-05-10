@@ -256,8 +256,7 @@ Train(const DatasetPtr& dataset, const Config& config){
         int N;
         sscanf(build_cfg->enc_type.c_str(), "PadPQ%d", &N);
         int t = build_cfg->d / N;
-        // int new_d = (t + 1) * N;
-        int new_d = 1152;
+        int new_d = (t + 1) * N;
 
         pretransform="Pad" + std::to_string(new_d) + ",";
         enc = build_cfg->enc_type.substr(3);
@@ -287,8 +286,9 @@ Train(const DatasetPtr& dataset, const Config& config){
 
         auto ivf_index = cast_to_gpu_ivf(device_index);
         ivf_index->cp.niter = 20;
-        ivf_index->cp.nredo = 6;
-        ivf_index->verbose = true;
+        ivf_index->cp.nredo = 4;
+        ivf_index->cp.max_points_per_centroid = 600;
+        ivf_index->verbose = opts.verbose;
 
 
         auto idmap = new faiss::IndexIDMap2(device_index);
@@ -414,6 +414,15 @@ CopyGpuToGpu(const int64_t& device_id, const Config& config, size_t& size){
 
     return std::make_shared<GenericGPUIVF>(index_, device_id, ResPtr(res_));
 
+}
+
+VectorIndexPtr
+GenericGPUIVF::
+CopyCpuToGpu(const int64_t& device_id, const Config& config){
+    SetGpuDevice(device_id);
+    LoadToGPU();
+
+    return std::make_shared<GenericGPUIVF>(index_, device_id, ResPtr(res_));
 }
 
 }  // namespace knowhere
