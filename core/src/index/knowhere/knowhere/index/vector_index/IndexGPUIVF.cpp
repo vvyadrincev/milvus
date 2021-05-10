@@ -214,6 +214,12 @@ CreateFaissOpts(){
     opts.useFloat16CoarseQuantizer = false;
     opts.indicesOptions = faiss::gpu::INDICES_64_BIT;
     // opts.indicesOptions = faiss::gpu::INDICES_IVF;
+
+    //for pq clustering
+    opts.pqClustMaxCentroids = 2000;
+    opts.pqTrainType = 3;
+    opts.verbose = true;
+
     return opts;
 }
 

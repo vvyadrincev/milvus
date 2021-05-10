@@ -10,6 +10,7 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/impl/ProductQuantizer.h>
+#include <faiss/utils/utils.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/impl/IVFPQ.cuh>
@@ -229,7 +230,16 @@ void
 GpuIndexIVFPQ::trainResidualQuantizer_(Index::idx_t n, const float* x) {
   // Code largely copied from faiss::IndexIVFPQ
   // FIXME: GPUize more of this
-  n = std::min(n, (Index::idx_t) (1 << bitsPerCode_) * 64);
+  // n = std::min(n, (Index::idx_t) (1 << bitsPerCode_) * 64);
+
+  const float * x_in = x;
+
+  x = fvecs_maybe_subsample (
+         d, (size_t*)&n, ivfpqConfig_.pqClustMaxCentroids * (1 << bitsPerCode_),
+         x, true);
+
+  ScopeDeleter<float> del_x (x_in == x ? nullptr : x);
+
 
   if (this->verbose) {
     printf("computing residuals\n");
@@ -253,6 +263,8 @@ GpuIndexIVFPQ::trainResidualQuantizer_(Index::idx_t n, const float* x) {
   // Just use the CPU product quantizer to determine sub-centroids
   faiss::ProductQuantizer pq(this->d, subQuantizers_, bitsPerCode_);
   pq.verbose = this->verbose;
+  pq.cp.max_points_per_centroid = ivfpqConfig_.pqClustMaxCentroids;
+  pq.train_type = static_cast<faiss::ProductQuantizer::train_type_t>(ivfpqConfig_.pqTrainType);
   pq.train(n, residuals.data());
 
   index_.reset(new IVFPQ(resources_.get(),

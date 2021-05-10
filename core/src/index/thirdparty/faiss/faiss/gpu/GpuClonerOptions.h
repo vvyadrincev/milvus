@@ -37,6 +37,10 @@ struct GpuClonerOptions {
 
   /// Set verbose options on the index
   bool verbose;
+
+  int pqClustMaxCentroids;
+  int pqTrainType;
+
 };
 
 struct GpuMultipleClonerOptions : public GpuClonerOptions {

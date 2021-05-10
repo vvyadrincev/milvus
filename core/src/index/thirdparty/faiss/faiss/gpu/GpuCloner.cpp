@@ -183,6 +183,8 @@ Index *ToGpuCloner::clone_Index(const Index *index)
         config.flatConfig.storeTransposed = storeTransposed;
         config.useFloat16LookupTables = useFloat16;
         config.usePrecomputedTables = usePrecomputed;
+        config.pqClustMaxCentroids = pqClustMaxCentroids;
+        config.pqTrainType = pqTrainType;
 
         GpuIndexIVFPQ *res = new GpuIndexIVFPQ(provider, ipq, config);
 

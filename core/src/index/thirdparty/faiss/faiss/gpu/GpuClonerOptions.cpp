@@ -16,7 +16,9 @@ GpuClonerOptions::GpuClonerOptions()
       usePrecomputed(false),
       reserveVecs(0),
       storeTransposed(false),
-      verbose(false) {
+      verbose(false),
+      pqClustMaxCentroids(256),
+      pqTrainType(0){
 }
 
 GpuMultipleClonerOptions::GpuMultipleClonerOptions()

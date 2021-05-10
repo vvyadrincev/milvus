@@ -24,7 +24,9 @@ struct GpuIndexIVFPQConfig : public GpuIndexIVFConfig {
       : useFloat16LookupTables(false),
         usePrecomputedTables(false),
         alternativeLayout(false),
-        useMMCodeDistance(false) {
+        useMMCodeDistance(false),
+        pqClustMaxCentroids(256),
+        pqTrainType(0){
   }
 
   /// Whether or not float16 residual distance tables are used in the
@@ -49,7 +51,11 @@ struct GpuIndexIVFPQConfig : public GpuIndexIVFConfig {
   /// of dimensions per sub-quantizer that is not natively specialized (an odd
   /// number like 7 or so).
   bool useMMCodeDistance;
+
+  int pqClustMaxCentroids;
+  int pqTrainType;
 };
+
 
 /// IVFPQ index for the GPU
 class GpuIndexIVFPQ : public GpuIndexIVF {
