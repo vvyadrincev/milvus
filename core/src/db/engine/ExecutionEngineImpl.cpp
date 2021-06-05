@@ -16,6 +16,7 @@
 // under the License.
 
 #include "db/engine/ExecutionEngineImpl.h"
+#include <faiss/IndexFlat.h>
 
 #include <fiu-local.h>
 #include <stdexcept>
@@ -625,10 +626,14 @@ ExecutionEnginePtr
 ExecutionEngineImpl::BuildIndex(const std::string& location, EngineType engine_type) {
     ENGINE_LOG_DEBUG << "Build index file: " << location << " from: " << location_;
 
-    auto from_index = std::dynamic_pointer_cast<BFIndex>(index_);
-    auto bin_from_index = std::dynamic_pointer_cast<BinBFIndex>(index_);
-    if (from_index == nullptr && bin_from_index == nullptr) {
-        ENGINE_LOG_ERROR << "ExecutionEngineImpl: from_index is null, failed to build index";
+    auto idmap_index = index_->GetFaissIndex();
+    if (idmap_index == nullptr ) {
+        ENGINE_LOG_ERROR << "ExecutionEngineImpl: idmap is null, failed to build index";
+        return nullptr;
+    }
+    auto flat_index = dynamic_cast<faiss::IndexFlat*>(idmap_index->index);
+    if (flat_index == nullptr ) {
+        ENGINE_LOG_ERROR << "ExecutionEngineImpl: flat_index is null, failed to build index";
         return nullptr;
     }
 
@@ -652,11 +657,8 @@ ExecutionEngineImpl::BuildIndex(const std::string& location, EngineType engine_t
 
     conf->enc_type = enc_type_;
 
-    if (from_index) {
-        status = to_index->BuildAll(Count(), from_index->GetRawVectors(), from_index->GetRawIds(), conf);
-    } else if (bin_from_index) {
-        status = to_index->BuildAll(Count(), bin_from_index->GetRawVectors(), bin_from_index->GetRawIds(), conf);
-    }
+    status = to_index->BuildAll(Count(), flat_index->xb.data(), idmap_index->id_map.data(), conf);
+
     if (!status.ok()) {
         throw Exception(DB_ERROR, status.message());
     }
