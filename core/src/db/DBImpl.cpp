@@ -711,6 +711,7 @@ InitDirectMap(const std::string& table_id){
     }
 }
 
+
 std::pair<int, int>
 DBImpl::
 LoadFragmentVectors(const std::string& table_id,
@@ -801,10 +802,9 @@ void remove_not_found(const std::vector<bool>& found,
 
 }
 
-
-auto brute_force_search_gpu(const CompareFragmentsReq& req, uint32_t dim,
-                            const std::span<const float>& query,
-                            const std::vector<float>& other){
+auto brute_force_search_gpu_impl(const CompareFragmentsReq& req, uint32_t dim,
+                                 const std::span<const float>& query,
+                                 const std::span<const float>& other){
 
     faiss::gpu::GpuDistanceParams params;
     //TODO take metric from table
@@ -833,14 +833,135 @@ auto brute_force_search_gpu(const CompareFragmentsReq& req, uint32_t dim,
 
 }
 
-auto brute_force_search(const CompareFragmentsReq& req, uint32_t dim,
-                        const std::span<const float>& query,
-                        const std::vector<float>& other){
+
+
+json DBImpl::BaseCompareResult::
+as_json()const{
+    auto query_ids = m_ctx.query_provider.get_ids();
+    json resp = json::array();
+    for(int i = 0; i<query_ids.size(); ++i){
+        auto [doc_id, sent_num, t] = decode_fragment_id(query_ids[i]);
+        // std::cout<<"result for query "<<doc_id<<":"<<sent_num<<std::endl;
+        json found_sents = json::array();
+
+        add_found_data(i, found_sents);
+
+        resp.push_back({doc_id, sent_num, std::move(found_sents)});
+
+    }
+    return resp;
+}
+
+void DBImpl::CosineCompareResult::
+add_found_data(int query_idx, json& found_sents_arr)const{
+    for(int k = 0; k < m_req.topk; ++k){
+        auto pos = query_idx*m_req.topk + k;
+
+        if (m_sims[pos] < m_req.min_sim){
+            if (k == 0)
+                m_stat.query_sents_wo_sim++;
+            break;
+        }
+
+        auto [fdoc, fsent, ft] = decode_fragment_id( m_ctx.other_ids[ m_sim_indices[pos] ] );
+        int coll_id_off = 0;
+        //find coll id
+        while(m_sim_indices[pos] >= m_ctx.coll_ids_offs[coll_id_off]) ++coll_id_off;
+        found_sents_arr.push_back({m_ctx.coll_ids[coll_id_off], fdoc, fsent, m_sims[pos]});
+        // std::cout<<"k"<<k<<": "<<fdoc<<":"<<fsent<<" - "<<distances[pos]<<std::endl;
+    }
+}
+
+void DBImpl::MarginCompareResult::
+add_found_data(int query_idx, json& found_sents_arr)const{
+    bool any_found = false;
+    for(int k = 0; k < m_req.topk; ++k){
+        auto pos = query_idx*m_req.topk + k;
+        if (m_margin_scores[pos] < m_req.min_sim)
+            continue;
+
+        any_found = true;
+        auto [fdoc, fsent, ft] = decode_fragment_id( m_ctx.other_ids[ m_sim_indices[pos] ] );
+        int coll_id_off = 0;
+        //find coll id
+        while(m_sim_indices[pos] >= m_ctx.coll_ids_offs[coll_id_off]) ++coll_id_off;
+        found_sents_arr.push_back(
+            {m_ctx.coll_ids[coll_id_off], fdoc, fsent, m_margin_scores[pos], m_sims[pos]});
+        // std::cout<<"k"<<k<<": "<<fdoc<<":"<<fsent<<" - "<<distances[pos]<<std::endl;
+    }
+    if (not any_found)
+        m_stat.query_sents_wo_sim++;
+}
+
+std::vector<float>
+calc_mean_sim(int topk, const std::vector<float>& sim_vector){
+
+    auto vectors_cnt = sim_vector.size();
+    int queries_cnt = vectors_cnt / topk;
+    std::vector<float> mean_vector(queries_cnt, 0.);
+    for (int i=0; i<vectors_cnt; ++i)
+        mean_vector[ i/topk ] +=  sim_vector[i] / static_cast<float>(2 * topk);
+
+    return mean_vector;
+}
+
+auto calc_margin_score(const CompareFragmentsReq& req, uint32_t dim,
+                       const std::span<const float>& query,
+                       const std::vector<float>& other){
+
+    auto [idx_forward, sim_forward] = brute_force_search_gpu_impl(req, dim, query, other);
+    auto [idx_backward, sim_backward] = brute_force_search_gpu_impl(req, dim, other, query);
+    // score(x,y)=margin(cos(x,y),∑z∈NNk(x)cos(x,z)/2k+∑z∈NNk(y)cos(y,z)/2k)
+    // margin(a,b)=a/b
+
+    auto mean_forward = calc_mean_sim(req.topk, sim_forward);
+    auto mean_backward = calc_mean_sim(req.topk, sim_backward);
+
+
+    int results_cnt = sim_forward.size();
+    std::vector<float> margin_scores(results_cnt, 0.);
+    for(int i=0; i<results_cnt; ++i){
+        float den = mean_forward[i/req.topk] + mean_backward[idx_forward[i]];
+        margin_scores[i] = sim_forward[i] / den;
+    }
+
+    return std::tuple(std::move(idx_forward), std::move(margin_scores), std::move(sim_forward));
+}
+
+
+auto brute_force_search_gpu(const CompareFragmentsReq& req, uint32_t dim,
+                            const std::span<const float>& query,
+                            const std::vector<float>& other){
+
+    return brute_force_search_gpu_impl(req, dim, query, other);
+}
+
+std::shared_ptr<DBImpl::BaseCompareResult>
+DBImpl::brute_force_search(const CompareFragmentsReq& req,
+                           const compare_context_t& ctx,
+                           compare_fragments_stat_t& stat)const{
     if (req.gpu_id == -1){
         throw std::runtime_error("Cpu brute force search is not supported!");
     }
-    return brute_force_search_gpu(req, dim, query, other);
+    auto dim = ctx.query_provider.dim();
+
+    if (req.use_margin_scoring){
+        auto [sim_indeces, margin_scores, cosine_sim] =                 \
+            calc_margin_score(req, dim, ctx.query_provider.get_vectors(),
+                              ctx.other_vectors);
+        return std::shared_ptr<DBImpl::BaseCompareResult>(
+            new MarginCompareResult(
+                req, ctx, stat,
+                std::move(sim_indeces), std::move(margin_scores), std::move(cosine_sim)));
+
+    }
+
+    auto [sim_indeces, distances] =
+        brute_force_search_gpu(req, dim, ctx.query_provider.get_vectors(), ctx.other_vectors);
+    return std::shared_ptr<DBImpl::BaseCompareResult>(
+        new CosineCompareResult(req, ctx, stat, std::move(sim_indeces), std::move(distances)));
 }
+
 
 std::tuple<ResultIds, std::vector<float>, uint32_t>
 DBImpl::
@@ -864,23 +985,24 @@ PrepareQueryVectors(const CompareFragmentsReq& req,
     return std::tuple(std::move(query_ids), std::move(query_vectors), sents_per_fragment);
 }
 
-std::tuple<ResultIds, std::vector<float>, std::vector<uint16_t>, std::vector<int>>
+void
 DBImpl::
 PrepareOtherVectors(const CompareFragmentsReq& req,
                     const json& fragment_req,
                     uint32_t sents_per_fragment,
                     uint32_t dim,
+                    compare_context_t& ctx,
                     compare_fragments_stat_t& stat){
 
     auto other_fragments_cnt = std::accumulate(std::begin(fragment_req), std::end(fragment_req), 0,
                                                [](int total, const auto& o) {return total + o.at(1).size();});
-    std::vector<float> other_vectors;
+    ctx.other_vectors.clear();
     //estimate size
-    other_vectors.reserve(sents_per_fragment * other_fragments_cnt * dim);
-    ResultIds other_ids;
-    other_ids.reserve(sents_per_fragment * other_fragments_cnt);
-    std::vector<uint16_t> coll_ids;
-    std::vector<int> coll_ids_offs;
+    ctx.other_vectors.reserve(sents_per_fragment * other_fragments_cnt * dim);
+    ctx.other_ids.clear();
+    ctx.other_ids.reserve(sents_per_fragment * other_fragments_cnt);
+    ctx.coll_ids.clear();
+    ctx.coll_ids_offs.clear();
 
     for (const auto& other : fragment_req){
         const auto& table_name = other.at(0).get_ref<const std::string&>();
@@ -888,16 +1010,14 @@ PrepareOtherVectors(const CompareFragmentsReq& req,
         const auto& fragment_ids = other.at(2);
         for(const auto& fragment_id : fragment_ids){
             auto [total, found] = LoadFragmentVectors(table_name, fragment_id.get<int64_t>(),
-                                                      other_ids, other_vectors);
+                                                      ctx.other_ids, ctx.other_vectors);
             stat.other_sents_total += total;
             stat.compared_other_sents_total += found;
         }
 
-        coll_ids.push_back(coll_id);
-        coll_ids_offs.push_back(other_ids.size());
+        ctx.coll_ids.push_back(coll_id);
+        ctx.coll_ids_offs.push_back(ctx.other_ids.size());
     }
-    return std::tuple(std::move(other_ids), std::move(other_vectors),
-                      std::move(coll_ids), std::move(coll_ids_offs));
 }
 
 DBImpl::query_vectors_provider_t::
@@ -970,47 +1090,26 @@ CompareFragmentImpl(const CompareFragmentsReq& req, const json& query_info,
         return json::array();
 
     query_vectors_provider_t query_vectors_provider{req, query_info, this, stat};
-    auto query_vectors =  query_vectors_provider.get_vectors();
-
-    if (query_vectors.empty())
+    if (query_vectors_provider.get_vectors().empty())
         return json::array();
 
-    auto [other_ids, other_vectors, coll_ids, coll_ids_offs] =
-        PrepareOtherVectors(req, fragment_req,
-                            query_vectors_provider.sents_per_fragment(),
-                            query_vectors_provider.dim(), stat);
-    if (other_vectors.empty())
+    compare_context_t ctx{std::move(query_vectors_provider)};
+
+
+    PrepareOtherVectors(req, fragment_req,
+                        query_vectors_provider.sents_per_fragment(),
+                        query_vectors_provider.dim(),
+                        ctx, stat);
+    if (ctx.other_vectors.empty())
         return json::array();
 
-    auto [sim_indeces, distances] = brute_force_search(req, query_vectors_provider.dim(),
-                                                       query_vectors, other_vectors);
-
-    auto query_ids = query_vectors_provider.get_ids();
-    json resp = json::array();
-    for(int i = 0; i<query_ids.size(); ++i){
-        auto [doc_id, sent_num, t] = decode_fragment_id(query_ids[i]);
-        // std::cout<<"result for query "<<doc_id<<":"<<sent_num<<std::endl;
-        json found_sents = json::array();
-        for(int k = 0; k < req.topk; ++k){
-            auto pos = i*req.topk + k;
-            if (distances[pos] < req.min_sim){
-                if (k == 0)
-                    stat.query_sents_wo_sim++;
-                break;
-            }
-
-            auto [fdoc, fsent, ft] = decode_fragment_id( other_ids[ sim_indeces[pos] ] );
-
-            int coll_id_off = 0;
-            while(sim_indeces[pos] >= coll_ids_offs[coll_id_off]) ++coll_id_off;
-            found_sents.push_back({coll_ids[coll_id_off], fdoc, fsent, distances[pos]});
-            // std::cout<<"k"<<k<<": "<<fdoc<<":"<<fsent<<" - "<<distances[pos]<<std::endl;
-        }
-        resp.push_back({doc_id, sent_num, std::move(found_sents)});
-
+    if (req.gpu_id == -1){
+        throw std::runtime_error("Cpu brute force search is not supported!");
     }
 
-    return resp;
+    auto result = brute_force_search(req, ctx, stat);
+
+    return result->as_json();
 }
 
 uint64_t

@@ -451,6 +451,13 @@ compare_fragments_impl(const std::shared_ptr<Context>& pctx,
     req.min_sim = params.value("min_sim", req.min_sim);
     req.topk = params.value("topk", req.topk);
     req.fragments = params.at("fragments");
+    auto score_kind = params.value("score_kind", "cos");
+    if (score_kind == "cos")
+        req.use_margin_scoring = false;
+    else if (score_kind == "margin")
+        req.use_margin_scoring = true;
+    else
+        return json::to_cbor(create_json_err_obj(Status(13, score_kind), "Unknown score_kind"));
 
     bool norm = params.value("normalize_L2", false);
     if (norm and not req.float_data.empty())

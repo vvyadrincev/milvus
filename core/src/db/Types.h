@@ -76,6 +76,8 @@ struct CompareFragmentsReq{
     //for knn approach
     int topk = 5;
 
+    bool use_margin_scoring = false;
+
 };
 
 }  // namespace engine

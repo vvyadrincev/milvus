@@ -163,17 +163,90 @@ protected:
         uint32_t           m_dim;
     };
 
+    struct compare_context_t{
+        compare_context_t(query_vectors_provider_t&& provider):query_provider(std::move(provider))
+        {}
+        query_vectors_provider_t query_provider;
+
+        ResultIds other_ids;
+        std::vector<float> other_vectors;
+        std::vector<uint16_t> coll_ids;
+        std::vector<int> coll_ids_offs;
+    };
+
+    class BaseCompareResult{
+    public:
+        BaseCompareResult(const CompareFragmentsReq& req,
+                          const compare_context_t& ctx,
+                          compare_fragments_stat_t& stat):m_req(req),
+                                                          m_ctx(ctx),
+                                                          m_stat(stat){}
+
+        json as_json()const;
+
+    protected:
+
+        virtual void add_found_data(int query_idx, json& found_sents_arr)const=0;
+
+        const CompareFragmentsReq& m_req;
+        const compare_context_t& m_ctx;
+        compare_fragments_stat_t& m_stat;
+    };
+
+    class CosineCompareResult:public BaseCompareResult{
+    public:
+        CosineCompareResult(const CompareFragmentsReq& req,
+                            const compare_context_t& ctx,
+                            compare_fragments_stat_t& stat,
+                            std::vector<faiss::Index::idx_t>&& sim_indices,
+                            std::vector<float>&& sims):BaseCompareResult(req, ctx, stat),
+                                                       m_sim_indices(std::move(sim_indices)),
+                                                       m_sims(std::move(sims))
+        {}
+    protected:
+        void add_found_data(int query_idx, json& found_sents_arr)const override;
+
+        std::vector<faiss::Index::idx_t>  m_sim_indices;
+        std::vector<float> m_sims;
+    };
+
+    class MarginCompareResult:public BaseCompareResult{
+    public:
+        MarginCompareResult(const CompareFragmentsReq& req,
+                            const compare_context_t& ctx,
+                            compare_fragments_stat_t& stat,
+                            std::vector<faiss::Index::idx_t>&& sim_indices,
+                            std::vector<float>&& margin_scores,
+                            std::vector<float>&& sims):BaseCompareResult(req, ctx, stat),
+                                                       m_sim_indices(std::move(sim_indices)),
+                                                       m_margin_scores(std::move(margin_scores)),
+                                                       m_sims(std::move(sims))
+        {}
+
+    protected:
+        void add_found_data(int query_idx, json& found_sents_arr)const override;
+
+        std::vector<faiss::Index::idx_t>  m_sim_indices;
+        std::vector<float> m_margin_scores;
+        std::vector<float> m_sims;
+    };
+
+    std::shared_ptr<BaseCompareResult> brute_force_search(const CompareFragmentsReq& req,
+                                                          const compare_context_t& ctx,
+                                                          compare_fragments_stat_t& stat)const;
+
     std::tuple<ResultIds, std::vector<float>, uint32_t>
     PrepareQueryVectors(const CompareFragmentsReq& req,
                         uint64_t query_fragment_id,
                         const engine::meta::TableSchema& table_info,
                         compare_fragments_stat_t& stat);
 
-    std::tuple<ResultIds, std::vector<float>, std::vector<uint16_t>, std::vector<int>>
+    void
     PrepareOtherVectors(const CompareFragmentsReq& req,
                         const json& fragment_req,
                         uint32_t sents_per_fragment,
                         uint32_t dim,
+                        compare_context_t& ctx,
                         compare_fragments_stat_t& stat);
     void
     InitDirectMap(const std::string& table_name);
