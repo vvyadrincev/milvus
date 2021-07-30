@@ -1,7 +1,7 @@
 { pkgs ? (import <nixpkgs> {})
 , version ? "dev"
 }:
-let der = import ./default.nix { inherit pkgs version; };
+let der = import ./default.nix { inherit version; };
 in
 pkgs.mkShell {
   name = "milvus-${version}";

@@ -3,7 +3,16 @@
 }:
 
 let
-  pkgs = (import <nixpkgs>) {
+  pkgs_func = import (builtins.fetchTarball {
+    # Descriptive name to make the store path easier to identify
+    name = "nixpkgs-2021-03-20";
+    # Commit hash for nixpkgs-unstable. To obtain lastest run:
+    # `git ls-remote https://github.com/nixos/nixpkgs nixpkgs-unstable`
+    url = "https://github.com/nixos/nixpkgs/archive/4e0d3868c679da20108db402785f924daa1a7fb5.tar.gz";
+    # Hash obtained using `nix-prefetch-url --unpack <url>`
+    sha256 = "17ypsp6fmyywck1ad6fn77msg2xjlkgwv9ipzb4nw9hpca40hlss";
+  });
+  pkgs = pkgs_func {
     config = {
       packageOverrides = pkgs: {
         openblas = pkgs.openblas.override { blas64 = false; };
