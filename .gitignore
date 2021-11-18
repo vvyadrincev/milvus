@@ -3,6 +3,8 @@
 /.ccls
 *CMakeFiles
 *MakeFile
+*Makefile
+*cmake_install.cmake
 build-vec_indexer-VecIndexerKit-Debug
 CMakeLists.txt.user
 *.cmake
