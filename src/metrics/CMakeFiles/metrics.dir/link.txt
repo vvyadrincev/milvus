@@ -1,0 +1,2 @@
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libmetrics.a CMakeFiles/metrics.dir/Metrics.cpp.o CMakeFiles/metrics.dir/SystemInfo.cpp.o
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libmetrics.a

@@ -1,0 +1,2 @@
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libscheduler_job.a CMakeFiles/scheduler_job.dir/BuildIndexJob.cpp.o CMakeFiles/scheduler_job.dir/ClusterizeJob.cpp.o CMakeFiles/scheduler_job.dir/DeleteJob.cpp.o CMakeFiles/scheduler_job.dir/Job.cpp.o CMakeFiles/scheduler_job.dir/SearchJob.cpp.o
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libscheduler_job.a

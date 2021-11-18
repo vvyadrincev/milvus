@@ -1,0 +1,2 @@
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libwrapper.a CMakeFiles/wrapper.dir/BinVecImpl.cpp.o CMakeFiles/wrapper.dir/ConfAdapter.cpp.o CMakeFiles/wrapper.dir/ConfAdapterMgr.cpp.o CMakeFiles/wrapper.dir/DataTransfer.cpp.o CMakeFiles/wrapper.dir/KnowhereResource.cpp.o CMakeFiles/wrapper.dir/VecImpl.cpp.o CMakeFiles/wrapper.dir/VecIndex.cpp.o CMakeFiles/wrapper.dir/WrapperException.cpp.o CMakeFiles/wrapper.dir/gpu/GPUVecImpl.cpp.o
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libwrapper.a

@@ -1,0 +1,2 @@
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libcache.a CMakeFiles/cache.dir/CpuCacheMgr.cpp.o CMakeFiles/cache.dir/GpuCacheMgr.cpp.o
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libcache.a

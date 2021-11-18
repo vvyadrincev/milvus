@@ -1,0 +1,1 @@
+/nix/store/ca37d3qrydh0wpw40kswsx30j8dyzxh2-gcc-wrapper-10.2.0/bin/g++ -g CMakeFiles/simple_test.dir/simple_test.cpp.o -o simple_test  /nix/store/5j15phl9kwrgifx0jzj04fd3c2816243-boost-1.75.0/lib/libboost_unit_test_framework.so.1.75.0 /nix/store/5j15phl9kwrgifx0jzj04fd3c2816243-boost-1.75.0/lib/libboost_filesystem.so.1.75.0 

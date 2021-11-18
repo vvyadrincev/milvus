@@ -1,0 +1,2 @@
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libserver.a CMakeFiles/server.dir/server.cpp.o CMakeFiles/server.dir/DBWrapper.cpp.o CMakeFiles/server.dir/context/Context.cpp.o
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libserver.a

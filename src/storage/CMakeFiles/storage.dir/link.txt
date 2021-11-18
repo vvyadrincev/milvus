@@ -1,0 +1,2 @@
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libstorage.a CMakeFiles/storage.dir/file/FileIOReader.cpp.o CMakeFiles/storage.dir/file/FileIOWriter.cpp.o
+/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libstorage.a
