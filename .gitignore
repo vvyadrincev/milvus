@@ -1,7 +1,7 @@
 /.direnv/
 /build/
 /.ccls
-CMakeFiles
+*CMakeFiles
 *MakeFile
 build-vec_indexer-VecIndexerKit-Debug
 CMakeLists.txt.user
