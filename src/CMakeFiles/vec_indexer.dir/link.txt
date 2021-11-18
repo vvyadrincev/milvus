@@ -1,2 +1,0 @@
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libvec_indexer.a CMakeFiles/vec_indexer.dir/indexer.cpp.o
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libvec_indexer.a

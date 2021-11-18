@@ -1,2 +1,0 @@
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libdb_engine.a CMakeFiles/db_engine.dir/EngineFactory.cpp.o CMakeFiles/db_engine.dir/ExecutionEngineImpl.cpp.o
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libdb_engine.a

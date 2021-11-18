@@ -1,2 +1,0 @@
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libdb_insert.a CMakeFiles/db_insert.dir/MemManagerImpl.cpp.o CMakeFiles/db_insert.dir/MemMenagerFactory.cpp.o CMakeFiles/db_insert.dir/MemTable.cpp.o CMakeFiles/db_insert.dir/MemTableFile.cpp.o CMakeFiles/db_insert.dir/VectorSource.cpp.o
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libdb_insert.a

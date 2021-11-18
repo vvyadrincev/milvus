@@ -1,2 +1,0 @@
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ar qc libvector_index_helpers.a CMakeFiles/vector_index_helpers.dir/FaissGpuResourceMgr.cpp.o CMakeFiles/vector_index_helpers.dir/IndexParameter.cpp.o CMakeFiles/vector_index_helpers.dir/Cloner.cpp.o CMakeFiles/vector_index_helpers.dir/FaissIO.cpp.o
-/nix/store/cp1sa3xxvl71cypiinw2c62i5s33chlr-binutils-2.35.1/bin/ranlib libvector_index_helpers.a
